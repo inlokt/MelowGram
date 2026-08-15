@@ -402,8 +402,6 @@ MainWindow::MainWindow(not_null<Controller*> controller)
 	}));
 }))
 , _body(body()) {
-	window()->setAttribute(Qt::WA_NoSystemBackground, false);
-	window()->setAttribute(Qt::WA_TranslucentBackground, true);
 
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
