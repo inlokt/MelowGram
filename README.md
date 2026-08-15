@@ -58,4 +58,4 @@ The source code is published under GPLv3 with OpenSSL exception, the license is 
 [mac]: docs/building-mac.md
 [linux]: docs/building-linux.md
 [preview_image]: docs/assets/preview.png "Preview of MelowGram"
-[preview_image_url]: https://raw.githubusercontent.com/ваш_аккаунт/melowgram/main/docs/assets/preview.png
+[preview_image_url]: https://raw.githubusercontent.com/inlokt/melowgram/main/docs/assets/preview.png
