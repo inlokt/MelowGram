@@ -238,7 +238,7 @@ CountrySelectBox::Inner::Inner(
 : RpWidget(parent)
 , _type(type)
 , _rowHeight(st::countryRowHeight) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	const auto &byISO2 = Countries::Instance().byISO2();
 

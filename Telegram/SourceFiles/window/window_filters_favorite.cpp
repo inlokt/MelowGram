@@ -229,7 +229,7 @@ FolderFavoriteButton::FolderFavoriteButton(
 , _st(st)
 , _api(&controller->session().mtp())
 , _label(st.minTextWidth) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	setClickedCallback([=] { openLink(); });
 

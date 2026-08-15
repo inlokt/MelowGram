@@ -5,7 +5,12 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+/*
+ * modified for melowgram 14.08.2026
+ */
 #include "dialogs/dialogs_inner_widget.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 
 #include "dialogs/dialogs_three_state_icon.h"
 #include "dialogs/ui/chat_search_empty.h"
@@ -309,7 +314,9 @@ InnerWidget::InnerWidget(
 	+ st::defaultDialogRow.padding.left())
 , _childListShown(std::move(childListShown))
 , _freezeTimer([=] { _shownList->unfreeze(); update(); }) {
-	setAttribute(Qt::WA_OpaquePaintEvent, true);
+	if (st::dialogsBg->c.alpha() == 255) {
+		setAttribute(Qt::WA_OpaquePaintEvent, true);
+	}
 	setAccessibleName(tr::lng_recent_chats(tr::now));
 
 	_communityViewable.setRepaint([=] { update(); });
@@ -999,7 +1006,26 @@ void InnerWidget::showSavedSublists() {
 }
 
 void InnerWidget::paintEvent(QPaintEvent *e) {
+	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+	bool wantOpaque = (st::dialogsBg->c.alpha() == 255) && (blackout == 100);
+	
+	if (testAttribute(Qt::WA_OpaquePaintEvent) != wantOpaque) {
+		setAttribute(Qt::WA_OpaquePaintEvent, wantOpaque);
+		if (auto viewport = parentWidget()) {
+			viewport->setAttribute(Qt::WA_OpaquePaintEvent, wantOpaque);
+		}
+	}
+	if (auto viewport = parentWidget()) {
+		if (auto scroll = qobject_cast<QScrollArea*>(viewport->parentWidget())) {
+			static_cast<Ui::ScrollArea*>(scroll)->disableScrollBitBlt(!wantOpaque);
+		}
+	}
+
 	Painter p(this);
+	
+	if (!wantOpaque) {
+		p.fillRect(e->rect(), st::dialogsBg);
+	}
 
 	p.setInactive(
 		_controller->isGifPausedAtLeastFor(Window::GifPauseReason::Any));
@@ -1081,6 +1107,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			: _chatPreviewRow.key
 			? (row->key() == _chatPreviewRow.key)
 			: selected;
+		int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
 		const auto cacheAllowed = _rowsScrollCache.scrolling()
 			&& (!videoUserpic || !context.narrow)
 			&& !active
@@ -1089,6 +1116,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 			&& !context.rightButton
 			&& !expanding
 			&& !childListShown.shown
+			&& !(blackout < 100)
 			&& (fullWidth > 0);
 		if (cacheAllowed && _rowsScrollCache.hasFresh(cacheKey, cacheSize)) {
 			context.topicsExpanded = 0.;

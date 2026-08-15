@@ -121,7 +121,7 @@ void FiltersMenu::setup() {
 	_menu.setIsMenuButton(true);
 	_menu.setAccessibleName(tr::lng_main_menu(tr::now));
 
-	_outer.setAttribute(Qt::WA_OpaquePaintEvent);
+	_outer.setAttribute(Qt::WA_OpaquePaintEvent, false);
 	_outer.show();
 	_outer.paintRequest(
 	) | rpl::on_next([=](QRect clip) {

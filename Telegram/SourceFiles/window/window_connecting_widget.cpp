@@ -52,7 +52,7 @@ private:
 Progress::Progress(QWidget *parent)
 : RpWidget(parent)
 , _animation([=] { animationStep(); }, st::connectingRadial) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 	setAttribute(Qt::WA_TransparentForMouseEvents);
 	resize(st::connectingRadial.size);
 	_animation.start(st::connectingRadial.sineDuration);

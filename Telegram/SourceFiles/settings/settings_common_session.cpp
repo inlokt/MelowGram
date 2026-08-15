@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/settings_experimental.h"
 #include "settings/sections/settings_chat.h"
 #include "settings/sections/settings_main.h"
+#include "settings/sections/settings_melowgram.h"
 
 namespace Settings {
 
@@ -18,6 +19,7 @@ bool HasMenu(Type type) {
 	return (type == ::Settings::CloudPasswordEmailConfirmId())
 		|| (type == MainId())
 		|| (type == ChatId())
+		|| (type == MelowGramId())
 		|| (type == Experimental::Id());
 }
 

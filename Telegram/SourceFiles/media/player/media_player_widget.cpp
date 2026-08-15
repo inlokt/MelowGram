@@ -88,7 +88,7 @@ Widget::Widget(
 	}, _speedToggle->lifetime());
 	_speedToggle->finishAnimating();
 
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 	setMouseTracking(true);
 	resize(width(), st::mediaPlayerHeight + st::lineWidth);
 

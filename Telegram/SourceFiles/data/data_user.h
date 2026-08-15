@@ -241,6 +241,7 @@ public:
 	[[nodiscard]] bool canShareThisContactFast() const;
 
 	[[nodiscard]] const QString &phone() const;
+	[[nodiscard]] const QString &realPhone() const;
 	[[nodiscard]] QString username() const;
 	[[nodiscard]] QString editableUsername() const;
 	[[nodiscard]] const std::vector<QString> &usernames() const;

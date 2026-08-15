@@ -807,6 +807,11 @@ Widget::Widget(
 #ifdef _DEBUG
 	setupTopBarSuggestionTestHotkeys();
 #endif // _DEBUG
+
+	/* _discordProfileWidget = object_ptr<DiscordProfileWidget>(this, controller);
+	
+	const bool isDiscordMode = Core::App().settings().readPref<bool>("MelowGramDiscordMode", false);
+	_discordProfileWidget->setVisible(isDiscordMode); */
 }
 
 void Widget::setupSwipeBack() {
@@ -966,6 +971,8 @@ void Widget::setupSwipeBack() {
 		.update = std::move(update),
 		.init = std::move(init),
 	});
+	
+	_scroll->viewport()->setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 }
 
@@ -4488,6 +4495,12 @@ void Widget::updateControlsGeometry() {
 	updateLockUnlockPosition();
 
 	auto bottomSkip = 0;
+	if (_discordProfileWidget && !_discordProfileWidget->isHidden()) {
+		const auto profileHeight = _discordProfileWidget->height();
+		bottomSkip += profileHeight;
+		_discordProfileWidget->setGeometry(0, height() - bottomSkip, barw, profileHeight);
+	}
+
 	const auto putBottomButton = [&](auto &button) {
 		if (button && !button->isHidden()) {
 			const auto buttonHeight = button->height();
@@ -4558,8 +4571,9 @@ void Widget::updateControlsGeometry() {
 		if (_forumReportBar) {
 			_forumReportBar->bar().move(0, forumReportTop);
 		}
-		const auto chatFiltersTop = forumReportTop
+		auto chatFiltersTop = forumReportTop
 			+ (_forumReportBar ? _forumReportBar->bar().height() : 0);
+
 		if (_chatFilters) {
 			_chatFilters->move(0, chatFiltersTop);
 		}

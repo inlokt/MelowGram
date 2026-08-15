@@ -67,15 +67,27 @@ Sandbox::Sandbox(int &argc, char **argv)
 #endif // Q_OS_MAC
 }
 
+static void StartupTrace(const char *msg) {
+	FILE *f = fopen("C:\\Users\\1337\\AppData\\Local\\Temp\\melow_trace.txt", "a");
+	if (f) {
+		fprintf(f, "%s\n", msg);
+		fflush(f);
+		fclose(f);
+	}
+}
+
 int Sandbox::start() {
+	StartupTrace("Sandbox::start entered");
 	{
 		const auto d = QFile::encodeName(QDir(cWorkingDir()).absolutePath());
 		char h[33] = { 0 };
 		hashMd5Hex(d.constData(), d.size(), h);
 		_localServerName = Platform::SingleInstanceLocalServerName(h);
 	}
+	StartupTrace("SingleInstanceLocalServerName computed");
 
 	if (cLaunchMode() == LaunchModeCleanup) {
+		StartupTrace("LaunchModeCleanup requested");
 		const auto result = stopRunningInstance();
 		psCleanup();
 		closeApplication();
@@ -83,6 +95,7 @@ int Sandbox::start() {
 	}
 
 	if (!Core::UpdaterDisabled()) {
+		StartupTrace("Creating UpdateChecker");
 		_updateChecker = std::make_unique<Core::UpdateChecker>();
 	}
 
@@ -243,10 +256,14 @@ void Sandbox::QuitWhenStarted() {
 }
 
 void Sandbox::launchApplication() {
+	StartupTrace("Sandbox::launchApplication queued");
 	InvokeQueued(this, [=] {
+		StartupTrace("Sandbox::launchApplication running");
 		if (Quitting()) {
+			StartupTrace("launchApplication: Quitting() was true");
 			quit();
 		} else if (_application) {
+			StartupTrace("launchApplication: _application already exists");
 			return;
 		}
 		setupScreenScale();
@@ -264,6 +281,7 @@ void Sandbox::launchApplication() {
 				: nullptr;
 		}, _lifetime);
 
+		StartupTrace("Application creating");
 		_application = std::make_unique<Application>();
 
 		// Ideally this should go to constructor.
@@ -272,7 +290,9 @@ void Sandbox::launchApplication() {
 		// our filter after the Application constructor installs his.
 		installNativeEventFilter(this);
 
+		StartupTrace("Application running");
 		_application->run();
+		StartupTrace("Application->run returned");
 	});
 }
 
@@ -344,6 +364,7 @@ bool Sandbox::event(QEvent *e) {
 }
 
 void Sandbox::socketConnected() {
+	StartupTrace("Sandbox::socketConnected (Activating existing instance)");
 	LOG(("Socket connected, this is not the first application instance, sending show command..."));
 	_secondInstance = true;
 
@@ -395,10 +416,12 @@ void Sandbox::socketReading() {
 		"activating and quitting..."
 		).arg(processId
 		).arg(windowId));
+	StartupTrace("socketReading done -> Quit()");
 	return Quit();
 }
 
 void Sandbox::socketError(QLocalSocket::LocalSocketError e) {
+	StartupTrace("Sandbox::socketError (This is first instance)");
 	if (Quitting()) return;
 
 	if (_secondInstance) {
@@ -419,6 +442,7 @@ void Sandbox::socketError(QLocalSocket::LocalSocketError e) {
 
 	if (!_localServer.listen(_localServerName)) {
 		LOG(("Failed to start listening to %1 server: %2").arg(_localServerName, _localServer.errorString()));
+		StartupTrace("Sandbox::socketError failed to listen -> Quit()");
 		return Quit();
 	}
 #endif // !Q_OS_WINRT
@@ -428,13 +452,16 @@ void Sandbox::socketError(QLocalSocket::LocalSocketError e) {
 		&& Core::checkReadyUpdate()) {
 		cSetRestartingUpdate(true);
 		DEBUG_LOG(("Sandbox Info: installing update instead of starting app..."));
+		StartupTrace("Sandbox::socketError restarting update -> Quit()");
 		return Quit();
 	}
 
 	if (cQuit()) {
+		StartupTrace("Sandbox::socketError cQuit() -> Quit()");
 		return Quit();
 	}
 
+	StartupTrace("Sandbox::singleInstanceChecked calling");
 	singleInstanceChecked();
 }
 

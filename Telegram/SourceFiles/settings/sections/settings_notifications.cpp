@@ -648,7 +648,7 @@ NotificationsCount::SampleWidget::SampleWidget(
 		| Qt::Tool);
 	setAttribute(Qt::WA_MacAlwaysShowToolWindow);
 	setAttribute(Qt::WA_TransparentForMouseEvents);
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	setWindowOpacity(0.);
 	show();

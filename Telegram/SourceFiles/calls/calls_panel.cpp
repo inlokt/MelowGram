@@ -275,7 +275,7 @@ void Panel::savePanelGeometry() {
 }
 
 void Panel::initWindow() {
-	window()->setAttribute(Qt::WA_OpaquePaintEvent);
+	window()->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	window()->setAttribute(Qt::WA_NoSystemBackground);
 	window()->setTitle(_user->name());
 	window()->setTitleStyle(st::callTitle);

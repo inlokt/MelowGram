@@ -25,6 +25,7 @@ public:
 	HWND psHwnd() const;
 
 	void updateWindowIcon() override;
+	void updateWindowTransparency() override;
 	bool isActiveForTrayMenu() override;
 
 	// Custom shadows.

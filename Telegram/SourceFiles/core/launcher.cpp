@@ -376,19 +376,35 @@ void Launcher::initHighDpi() {
 	}
 }
 
+static void StartupTrace(const char *msg) {
+	FILE *f = fopen("C:\\Users\\1337\\AppData\\Local\\Temp\\melow_trace.txt", "a");
+	if (f) {
+		fprintf(f, "%s\n", msg);
+		fflush(f);
+		fclose(f);
+	}
+}
+
 int Launcher::exec() {
+	StartupTrace("Launcher::exec: starting");
 	init();
+	StartupTrace("Launcher::exec: init done");
 
 	if (cLaunchMode() == LaunchModeFixPrevious) {
+		StartupTrace("Launcher::exec: FixPrevious");
 		return psFixPrevious();
 	}
 
 	// Must be started before Platform is started.
+	StartupTrace("Launcher::exec: Logs::start");
 	Logs::start();
+	StartupTrace("Launcher::exec: Logs::start done");
 	base::options::init(cWorkingDir() + "tdata/experimental_options.json");
+	StartupTrace("Launcher::exec: base::options::init done");
 
 	// Must be called after options are inited.
 	initHighDpi();
+	StartupTrace("Launcher::exec: initHighDpi done");
 
 	if (Logs::DebugEnabled()) {
 		const auto openalLogPath = QDir::toNativeSeparators(
@@ -408,9 +424,14 @@ int Launcher::exec() {
 	}
 
 	// Must be started before Sandbox is created.
+	StartupTrace("Launcher::exec: Platform::start");
 	Platform::start();
+	StartupTrace("Launcher::exec: Platform::start done");
 	ThirdParty::start();
+	StartupTrace("Launcher::exec: ThirdParty::start done");
+	StartupTrace("Launcher::exec: executeApplication calling");
 	auto result = executeApplication();
+	StartupTrace("Launcher::exec: executeApplication returned");
 
 	DEBUG_LOG(("Telegram finished, result: %1").arg(result));
 

@@ -229,7 +229,7 @@ IntroWidget::IntroWidget(
 , _wrap(this)
 , _scroll(Ui::CreateChild<Ui::ScrollArea>(_wrap.data()))
 , _topShadow(this) {
-	_wrap->setAttribute(Qt::WA_OpaquePaintEvent);
+	_wrap->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	_wrap->paintRequest(
 	) | rpl::on_next([=](QRect clip) {
 		auto p = QPainter(_wrap.data());

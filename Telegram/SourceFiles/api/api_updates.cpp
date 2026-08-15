@@ -18,7 +18,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_transcribes.h"
 #include "main/main_session.h"
 #include "main/main_account.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "mtproto/mtp_instance.h"
+
+extern void MelowGramMarkMessageDeleted(uint64_t id);
 #include "mtproto/mtproto_config.h"
 #include "mtproto/mtproto_dc_options.h"
 #include "chat_helpers/stickers_dice_pack.h"
@@ -997,6 +1001,9 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
 	bool isOnline = Core::App().hasActiveWindow(&session());
 	int updateIn = config.onlineUpdatePeriod;
 	Assert(updateIn >= 0);
+	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+		isOnline = false;
+	}
 	if (isOnline) {
 		const auto idle = crl::now() - lastNonIdleTime;
 		if (idle >= config.offlineIdleTimeout) {
@@ -1396,6 +1403,9 @@ void Updates::applyUpdateNoPtsCheck(const MTPUpdate &update) {
 
 	case mtpc_updateDeleteMessages: {
 		auto &d = update.c_updateDeleteMessages();
+		for (const auto &messageId : d.vmessages().v) {
+			MelowGramMarkMessageDeleted(messageId.v);
+		}
 		_session->data().processNonChannelMessagesDeleted(d.vmessages().v);
 	} break;
 
@@ -1446,6 +1456,10 @@ void Updates::applyUpdateNoPtsCheck(const MTPUpdate &update) {
 
 	case mtpc_updateDeleteChannelMessages: {
 		auto &d = update.c_updateDeleteChannelMessages();
+		uint64_t channelId = d.vchannel_id().v;
+		for (const auto &messageId : d.vmessages().v) {
+			MelowGramMarkMessageDeleted((channelId << 32) | (uint32_t)messageId.v);
+		}
 		_session->data().processMessagesDeleted(
 			peerFromChannel(d.vchannel_id().v),
 			d.vmessages().v);

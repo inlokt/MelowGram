@@ -670,6 +670,9 @@ public:
 
 	[[nodiscard]] QString fromRank() const;
 
+	[[nodiscard]] bool isMelowgramDeleted() const { return _melowgramDeleted; }
+	void markMelowgramDeleted() { _melowgramDeleted = true; }
+
 	MsgId id;
 
 private:
@@ -821,6 +824,7 @@ private:
 	MessageGroupId _groupId = MessageGroupId();
 	EffectId _effectId = 0;
 	HistoryView::Element *_mainView = nullptr;
+	bool _melowgramDeleted = false;
 
 	friend class HistoryView::Element;
 	friend class HistoryView::Message;

@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat.h"
 #include "styles/style_credits.h"
 #include "styles/style_dialogs.h"
+#include "styles/style_menu_icons.h"
 
 namespace HistoryView {
 namespace {
@@ -312,6 +313,22 @@ void BottomInfo::paint(
 			right,
 			firstLineBottom + st::historySilentTop,
 			outerWidth);
+	}
+	if (_data.flags & Data::Flag::MelowgramDeleted) {
+		const auto &icon = st::menuIconDelete;
+		const int targetHeight = st::msgDateFont->height;
+		const int targetWidth = (icon.width() * targetHeight) / icon.height();
+		right -= targetWidth;
+
+		const float scale = static_cast<float>(targetHeight) / icon.height();
+		p.save();
+		p.scale(scale, scale);
+		icon.paint(
+			p,
+			QPoint(qRound(right / scale), qRound(position.y() / scale)),
+			qRound(outerWidth / scale),
+			QColor(255, 0, 0));
+		p.restore();
 	}
 	if (_data.flags & Data::Flag::Ephemeral) {
 		const auto &icon = inverted
@@ -608,6 +625,10 @@ QSize BottomInfo::countOptimalSize() {
 	if (_data.flags & Data::Flag::Ephemeral) {
 		width += st::historyEphemeralStateWidth;
 	}
+	if (_data.flags & Data::Flag::MelowgramDeleted) {
+		const int targetHeight = st::msgDateFont->height;
+		width += (st::menuIconDelete.width() * targetHeight) / st::menuIconDelete.height();
+	}
 	_effectMaxWidth = countEffectMaxWidth();
 	width += _effectMaxWidth;
 	const auto dateHeight = (_data.flags & Data::Flag::Sponsored)
@@ -662,6 +683,9 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
 	result.effectId = item->effectId();
 	if (message->hasOutLayout()) {
 		result.flags |= Flag::OutLayout;
+	}
+	if (item->isMelowgramDeleted()) {
+		result.flags |= Flag::MelowgramDeleted;
 	}
 	if (message->context() == Context::Replies) {
 		result.flags |= Flag::RepliesContext;

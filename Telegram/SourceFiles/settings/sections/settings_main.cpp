@@ -49,12 +49,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_business.h"
 #include "settings/sections/settings_calls.h"
 #include "settings/sections/settings_chat.h"
-#include "settings/settings_codes.h"
-#include "settings/settings_faq_suggestions.h"
 #include "settings/sections/settings_credits.h"
 #include "settings/sections/settings_folders.h"
 #include "settings/sections/settings_information.h"
+#include "settings/sections/settings_melowgram.h"
 #include "settings/sections/settings_notifications.h"
+#include "settings/sections/settings_other.h"
+#include "settings/settings_codes.h"
+#include "settings/settings_faq_suggestions.h"
 #include "settings/settings_power_saving.h"
 #include "settings/sections/settings_premium.h"
 #include "settings/sections/settings_privacy_security.h"
@@ -393,6 +395,8 @@ void BuildSectionButtons(SectionBuilder &builder) {
 		.keywords = { u"themes"_q, u"appearance"_q, u"stickers"_q },
 	});
 
+
+
 	{ // Folders
 		const auto preload = [=] {
 			session->data().chatsFilters().requestSuggested();
@@ -466,6 +470,16 @@ void BuildSectionButtons(SectionBuilder &builder) {
 		},
 		.keywords = { u"translate"_q, u"localization"_q, u"language"_q },
 	});
+
+	builder.addSkip();
+	builder.addDivider();
+	builder.addSectionButton({
+		.title = tr::lng_settings_section_melowgram(),
+		.targetSection = MelowGramId(),
+		.icon = { &st::menuIconSettings },
+		.keywords = { u"melowgram"_q },
+	});
+	builder.addSkip();
 }
 
 void BuildInterfaceScale(SectionBuilder &builder) {

@@ -102,7 +102,7 @@ void Viewport::setup() {
 	const auto raw = widget();
 
 	raw->resize(0, 0);
-	raw->setAttribute(Qt::WA_OpaquePaintEvent);
+	raw->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	raw->setMouseTracking(true);
 
 	_content->sizeValue(

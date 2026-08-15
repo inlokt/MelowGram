@@ -50,7 +50,7 @@ rpl::producer<TextWithEntities> Text2() {
 		lt_github_link,
 		rpl::single(tr::link(
 			"GitHub",
-			"https://github.com/telegramdesktop/tdesktop")),
+			"https://github.com/inlokt/MelowGram")),
 		tr::marked);
 }
 
@@ -64,7 +64,7 @@ rpl::producer<TextWithEntities> Text3() {
 } // namespace
 
 void AboutBox(not_null<Ui::GenericBox*> box) {
-	box->setTitle(u"Telegram Desktop"_q);
+	box->setTitle(u"MelowGram"_q);
 
 	auto layout = box->verticalLayout();
 

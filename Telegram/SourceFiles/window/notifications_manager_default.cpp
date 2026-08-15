@@ -501,7 +501,7 @@ Widget::Widget(
 		| Qt::NoDropShadowWindowHint
 		| Qt::Tool);
 	setAttribute(Qt::WA_MacAlwaysShowToolWindow);
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	Ui::Platform::InitOnTopPanel(this);
 
@@ -620,7 +620,7 @@ QPoint Widget::computePosition(int height) const {
 }
 
 Background::Background(QWidget *parent) : RpWidget(parent) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 }
 
 void Background::paintEvent(QPaintEvent *e) {

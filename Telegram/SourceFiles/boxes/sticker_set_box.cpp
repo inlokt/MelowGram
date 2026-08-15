@@ -1080,7 +1080,7 @@ StickerSetBox::Inner::Inner(
 	? st::emojiSetPadding
 	: st::stickersPadding)
 , _previewTimer([=] { showPreview(); }) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	_api.request(MTPmessages_GetStickerSet(
 		Data::InputStickerSet(_input),

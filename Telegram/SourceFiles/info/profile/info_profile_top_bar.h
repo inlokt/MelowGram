@@ -90,6 +90,8 @@ class TopBarActionButton;
 
 struct TopBarActionButtonStyle;
 
+[[nodiscard]] QString ApproximateRegistrationDate(uint64 id);
+
 class TopBar final : public Ui::RpWidget {
 public:
 	enum class Source {
@@ -295,6 +297,8 @@ private:
 	bool _standaloneGroup = false;
 	object_ptr<Ui::FlatLabel> _status;
 	std::unique_ptr<StatusLabel> _statusLabel;
+	object_ptr<Ui::FlatLabel> _melowIdLabel = { nullptr };
+	object_ptr<Ui::FlatLabel> _melowRegDateLabel = { nullptr };
 	rpl::variable<int> _statusShift = 0;
 	rpl::producer<TextWithEntities> _customStatus;
 	object_ptr<Ui::FadeWrap<Ui::RoundButton>> _showLastSeen = { nullptr };

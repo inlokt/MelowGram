@@ -7,6 +7,88 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_item.h"
 
+#include "core/application.h"
+#include "core/core_settings.h"
+#include "data/data_user.h"
+#include "main/main_session.h"
+
+namespace {
+
+void ApplyStreamerMode(Main::Session &session, TextWithEntities &textWithEntities) {
+	bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
+	if (!streamerMode) return;
+	
+	int scope = Core::App().settings().readPref<int>("MelowGramStreamerModeScope", 0);
+	QString myUsername;
+	QString myPhone;
+	if (scope == 1) { // Self
+		if (auto user = session.user()) {
+			myUsername = user->editableUsername();
+			myPhone = user->realPhone();
+		}
+		if (myUsername.isEmpty() && myPhone.isEmpty()) return;
+	}
+	
+	const QString hideText = u"Hide Element"_q;
+	
+	for (int i = textWithEntities.entities.size() - 1; i >= 0; --i) {
+		auto &entity = textWithEntities.entities[i];
+		if (entity.type() == EntityType::Mention || entity.type() == EntityType::MentionName || entity.type() == EntityType::Phone) {
+			bool shouldHide = false;
+			QString entityStr = textWithEntities.text.mid(entity.offset(), entity.length());
+			
+			if (scope == 0) {
+				shouldHide = true;
+			} else {
+				if ((entity.type() == EntityType::Mention || entity.type() == EntityType::MentionName) && !myUsername.isEmpty()) {
+					if (entityStr.compare(u"@"_q + myUsername, Qt::CaseInsensitive) == 0) {
+						shouldHide = true;
+					}
+				} else if (entity.type() == EntityType::Phone && !myPhone.isEmpty()) {
+					QString cleanEntity = entityStr;
+					cleanEntity.remove(QRegularExpression("[^0-9]"));
+					QString cleanPhone = myPhone;
+					cleanPhone.remove(QRegularExpression("[^0-9]"));
+					if (!cleanEntity.isEmpty() && cleanEntity == cleanPhone) {
+						shouldHide = true;
+					}
+				}
+			}
+			
+			if (shouldHide) {
+				QString newData = entity.data();
+				EntityType newType = entity.type();
+
+				if (entity.type() == EntityType::Mention) {
+					newType = EntityType::CustomUrl;
+					QString username = entityStr;
+					if (username.startsWith(u'@')) {
+						username = username.mid(1);
+					}
+					newData = u"tg://resolve?domain="_q + username;
+				} else if (entity.type() == EntityType::Phone) {
+					newType = EntityType::CustomUrl;
+					QString phone = entityStr;
+					phone.remove(QRegularExpression("[^0-9+]"));
+					newData = u"tg://resolve?phone="_q + phone;
+				}
+
+				textWithEntities.text.replace(entity.offset(), entity.length(), hideText);
+				int lengthDiff = hideText.length() - entity.length();
+				
+				textWithEntities.entities[i] = EntityInText(newType, entity.offset(), hideText.length(), newData);
+				
+				for (int j = i + 1; j < textWithEntities.entities.size(); ++j) {
+					auto &nextEntity = textWithEntities.entities[j];
+					textWithEntities.entities[j] = EntityInText(nextEntity.type(), nextEntity.offset() + lengthDiff, nextEntity.length(), nextEntity.data());
+				}
+			}
+		}
+	}
+}
+
+}
+
 #include "api/api_premium.h"
 #include "api/api_sensitive_content.h"
 #include "api/api_transcribes.h"
@@ -76,6 +158,45 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "platform/platform_notifications_manager.h"
 #include "spellcheck/spellcheck_highlight_syntax.h"
 #include "styles/style_dialogs.h"
+
+#include "core/application.h"
+#include "core/core_settings.h"
+
+QSet<uint64_t> MelowGramDeletedMessagesList;
+bool _melowgramDeletedListLoaded = false;
+
+void MelowGramLoadDeleted() {
+    if (_melowgramDeletedListLoaded) return;
+    _melowgramDeletedListLoaded = true;
+    QString base64 = Core::App().settings().readPref<QString>("MelowGramDeletedList", QString());
+    if (!base64.isEmpty()) {
+        QByteArray data = QByteArray::fromBase64(base64.toLatin1());
+        QDataStream stream(data);
+        stream >> MelowGramDeletedMessagesList;
+    }
+}
+
+void MelowGramSaveDeleted() {
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::WriteOnly);
+    stream << MelowGramDeletedMessagesList;
+    QString base64 = QString::fromLatin1(data.toBase64());
+    Core::App().settings().writePref<QString>("MelowGramDeletedList", base64);
+    Core::App().saveSettingsDelayed();
+}
+
+void MelowGramMarkMessageDeleted(uint64_t id) {
+	if (!Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)) return;
+    MelowGramLoadDeleted();
+    MelowGramDeletedMessagesList.insert(id);
+    MelowGramSaveDeleted();
+}
+
+bool IsMelowGramMessageDeleted(uint64_t id) {
+	if (!Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)) return false;
+    MelowGramLoadDeleted();
+    return MelowGramDeletedMessagesList.contains(id);
+}
 
 namespace {
 
@@ -883,6 +1004,14 @@ HistoryItem::HistoryItem(
 	}
 	if (isGuestChatBotMessage()) {
 		_history->setHasGuestChatBotMessages();
+	}
+	
+	uint64_t mId = (uint32_t)id.bare;
+	if (history->peer->isChannel()) {
+		mId = (uint64_t(peerToChannel(history->peer->id).bare) << 32) | mId;
+	}
+	if (IsMelowGramMessageDeleted(mId)) {
+		_melowgramDeleted = true;
 	}
 }
 
@@ -4250,6 +4379,7 @@ void HistoryItem::detectTextLinks(
 }
 
 void HistoryItem::setText(TextWithEntities textWithEntities) {
+	ApplyStreamerMode(history()->session(), textWithEntities);
 	detectTextLinks(textWithEntities);
 	setTextValue((_media && _media->consumeMessageText(textWithEntities))
 		? TextWithEntities()

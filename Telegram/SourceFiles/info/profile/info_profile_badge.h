@@ -51,6 +51,7 @@ public:
 	struct Content {
 		BadgeType badge = BadgeType::None;
 		EmojiStatusId emojiStatusId;
+		uint64 peerId = 0;
 
 		friend inline bool operator==(Content, Content) = default;
 	};

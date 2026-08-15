@@ -38,6 +38,8 @@ struct HighlightArgs;
 
 namespace Window {
 
+class SessionController;
+
 class Controller final : public base::has_weak_ptr {
 public:
 	Controller();

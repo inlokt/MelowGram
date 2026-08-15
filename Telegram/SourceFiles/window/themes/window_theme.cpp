@@ -316,6 +316,7 @@ bool LoadTheme(
 		}
 		if (!out) {
 			Background()->saveAdjustableColors();
+	ApplyMelowGramModifiers();
 		}
 
 		auto backgroundTiled = false;
@@ -363,6 +364,7 @@ bool LoadTheme(
 		}
 		if (!out) {
 			Background()->saveAdjustableColors();
+	ApplyMelowGramModifiers();
 		}
 	}
 	if (out) {
@@ -404,6 +406,7 @@ bool InitializeFromCache(
 		return false;
 	}
 	Background()->saveAdjustableColors();
+	ApplyMelowGramModifiers();
 	if (!background.isNull()) {
 		applyBackground(std::move(background), cache.tiled, nullptr);
 	}
@@ -439,6 +442,7 @@ bool InitializeFromSaved(Saved &&saved) {
 		if (preview) {
 			style::main_palette::apply(preview->instance.palette);
 			Background()->saveAdjustableColors();
+	ApplyMelowGramModifiers();
 			saved.object.content = std::move(preview->object.content);
 			saved.cache = std::move(preview->instance.cached);
 			Local::writeTheme(saved);
@@ -1410,6 +1414,7 @@ void Revert() {
 	}
 	style::main_palette::load(GlobalApplying.paletteForRevert);
 	Background()->saveAdjustableColors();
+	ApplyMelowGramModifiers();
 
 	ClearApplying();
 	Background()->revert();
@@ -1704,5 +1709,24 @@ std::unique_ptr<Ui::ChatTheme> DefaultChatThemeOn(rpl::lifetime &lifetime) {
 	return result;
 }
 
+void ApplyMelowGramModifiers() {
+	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+	int alpha = (blackout * 255) / 100;
+
+	style::main_palette::setColor(QLatin1String("windowBg"), st::windowBg->c.red(), st::windowBg->c.green(), st::windowBg->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("windowBgOver"), st::windowBgOver->c.red(), st::windowBgOver->c.green(), st::windowBgOver->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("dialogsBg"), st::dialogsBg->c.red(), st::dialogsBg->c.green(), st::dialogsBg->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("dialogsBgOver"), st::dialogsBgOver->c.red(), st::dialogsBgOver->c.green(), st::dialogsBgOver->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("dialogsBgActive"), st::dialogsBgActive->c.red(), st::dialogsBgActive->c.green(), st::dialogsBgActive->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("topBarBg"), st::topBarBg->c.red(), st::topBarBg->c.green(), st::topBarBg->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("introBg"), st::introBg->c.red(), st::introBg->c.green(), st::introBg->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("titleBg"), st::titleBg->c.red(), st::titleBg->c.green(), st::titleBg->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("titleBgActive"), st::titleBgActive->c.red(), st::titleBgActive->c.green(), st::titleBgActive->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("contactsBg"), st::contactsBg->c.red(), st::contactsBg->c.green(), st::contactsBg->c.blue(), alpha);
+	style::main_palette::setColor(QLatin1String("searchedBarBg"), st::searchedBarBg->c.red(), st::searchedBarBg->c.green(), st::searchedBarBg->c.blue(), alpha);
+	
+	style::main_palette::setColor(QLatin1String("menuBg"), st::menuBg->c.red(), st::menuBg->c.green(), st::menuBg->c.blue(), 255);
+	style::main_palette::setColor(QLatin1String("menuBgOver"), st::menuBgOver->c.red(), st::menuBgOver->c.green(), st::menuBgOver->c.blue(), 255);
+}
 } // namespace Theme
 } // namespace Window

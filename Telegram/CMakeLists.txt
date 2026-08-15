@@ -51,7 +51,10 @@ if (WIN32)
     )
 endif()
 
-set_target_properties(Telegram PROPERTIES AUTOMOC ON)
+set_target_properties(Telegram PROPERTIES
+    AUTOMOC ON
+    OUTPUT_NAME "MelowGram"
+)
 
 target_link_libraries(Telegram
 PRIVATE
@@ -1758,6 +1761,14 @@ PRIVATE
     settings/sections/settings_advanced.cpp
     settings/sections/settings_advanced.h
     settings/sections/settings_chat.cpp
+    settings/sections/settings_melowgram.h
+    settings/sections/settings_melowgram.cpp
+    settings/sections/settings_melowgram_particles.h
+    settings/sections/settings_melowgram_particles.cpp
+    settings/sections/settings_melowgram_theme.h
+    settings/sections/settings_melowgram_theme.cpp
+    settings/sections/settings_other.h
+    settings/sections/settings_other.cpp
     settings/sections/settings_chat.h
     settings/sections/settings_blocked_peers.cpp
     settings/sections/settings_blocked_peers.h
@@ -2244,7 +2255,7 @@ else()
         set(bundle_identifier "com.tdesktop.Telegram")
     endif()
     set(bundle_entitlements "Telegram.entitlements")
-    set(output_name "Telegram")
+    set(output_name "MelowGram")
 endif()
 
 if (CMAKE_GENERATOR STREQUAL Xcode)

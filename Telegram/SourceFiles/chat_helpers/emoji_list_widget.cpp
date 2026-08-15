@@ -515,7 +515,7 @@ EmojiListWidget::EmojiListWidget(
 , _previewTimer([=] { showPreview(); }) {
 	setMouseTracking(true);
 	if (st().bg->c.alpha() > 0) {
-		setAttribute(Qt::WA_OpaquePaintEvent);
+		setAttribute(Qt::WA_OpaquePaintEvent, false);
 	}
 
 	if (_mode != Mode::RecentReactions

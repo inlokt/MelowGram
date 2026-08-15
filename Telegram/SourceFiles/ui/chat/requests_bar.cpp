@@ -39,7 +39,7 @@ RequestsBar::RequestsBar(
 	) | rpl::on_next([=](QRect clip) {
 		QPainter(_wrap.entity()).fillRect(clip, st::historyPinnedBg);
 	}, lifetime());
-	_wrap.setAttribute(Qt::WA_OpaquePaintEvent);
+	_wrap.setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	auto copy = std::move(
 		content

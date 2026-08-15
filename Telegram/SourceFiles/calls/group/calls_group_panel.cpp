@@ -381,7 +381,7 @@ void Panel::chooseSourceStop() {
 }
 
 void Panel::initWindow() {
-	window()->setAttribute(Qt::WA_OpaquePaintEvent);
+	window()->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	window()->setAttribute(Qt::WA_NoSystemBackground);
 	window()->setTitleStyle(st::groupCallTitle);
 

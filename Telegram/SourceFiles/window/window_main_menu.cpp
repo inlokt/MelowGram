@@ -342,7 +342,7 @@ MainMenu::MainMenu(
 , _telegram(
 	Ui::CreateChild<Ui::FlatLabel>(_footer.get(), st::mainMenuTelegramLabel))
 , _version(AddVersionLabel(_footer)) {
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	setupUserpicButton();
 	setupAccountsToggle();
@@ -383,10 +383,9 @@ MainMenu::MainMenu(
 
 	parentResized();
 
-	_telegram->setMarkedText(tr::link(
-		u"Telegram Desktop"_q,
-		u"https://desktop.telegram.org"_q));
-	_telegram->setLinksTrusted();
+	_telegram->setText(
+		u"Melow Desktop - beauty unofficial telegram desktop fork"_q);
+
 	_version->setMarkedText(
 		tr::link(
 			tr::lng_settings_current_version(

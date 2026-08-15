@@ -670,6 +670,14 @@ not_null<HistoryItem*> History::insertItem(
 void History::destroyMessage(not_null<HistoryItem*> item) {
 	Expects(item->isHistoryEntry() || !item->mainView());
 
+	if (!item->out() && Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)) {
+		if (!item->isMelowgramDeleted()) {
+			item->markMelowgramDeleted();
+			item->history()->owner().requestItemViewRefresh(item);
+		}
+		return;
+	}
+
 	const auto peerId = peer->id;
 	if (item->isHistoryEntry()) {
 		// All this must be done for all items manually in History::clear()!

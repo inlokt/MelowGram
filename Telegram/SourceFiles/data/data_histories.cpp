@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item_helpers.h"
 #include "history/view/history_view_element.h"
 #include "core/application.h"
+#include "core/core_settings.h"
 #include "apiwrap.h"
 
 namespace Data {
@@ -686,6 +687,10 @@ void Histories::reportPendingDeliveries() {
 void Histories::sendReadRequests() {
 	DEBUG_LOG(("Reading: send requests with count %1.").arg(_states.size()));
 	if (_states.empty()) {
+		return;
+	}
+	
+	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
 		return;
 	}
 	const auto now = crl::now();

@@ -11,6 +11,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history.h"
 #include "data/data_peer.h"
 #include "data/data_user.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "base/unixtime.h"
 #include "data/data_peer_values.h"
 #include "apiwrap.h"
@@ -152,6 +154,9 @@ void SendProgressManager::send(const Key &key, int progress) {
 }
 
 bool SendProgressManager::skipRequest(const Key &key) const {
+	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+		return true;
+	}
 	const auto user = key.history->peer->asUser();
 	if (!user) {
 		return false;

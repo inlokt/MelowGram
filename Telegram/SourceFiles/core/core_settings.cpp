@@ -1976,4 +1976,33 @@ void Settings::setQuickDialogAction(Dialogs::Ui::QuickDialogAction action) {
 	_quickDialogAction = action;
 }
 
+
+template <>
+void Settings::writePrefImpl<int>(std::string_view key, int value) {
+	writePrefGeneric(key, QByteArray::number(value));
+}
+
+template <>
+std::optional<int> Settings::readPrefImpl<int>(std::string_view key) {
+	if (const auto data = readPrefGeneric(key)) {
+		bool ok = false;
+		int value = data->toInt(&ok);
+		if (ok) return value;
+	}
+	return std::nullopt;
+}
+
+template <>
+void Settings::writePrefImpl<QString>(std::string_view key, QString value) {
+	writePrefGeneric(key, value.toUtf8());
+}
+
+template <>
+std::optional<QString> Settings::readPrefImpl<QString>(std::string_view key) {
+	if (const auto data = readPrefGeneric(key)) {
+		return QString::fromUtf8(*data);
+	}
+	return std::nullopt;
+}
+
 } // namespace Core

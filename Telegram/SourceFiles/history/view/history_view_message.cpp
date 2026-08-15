@@ -5,6 +5,9 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+/*
+ * modified for melowgram 23.07.2026
+ */
 #include "history/view/history_view_message.h"
 
 #include "api/api_suggest_post.h"
@@ -2493,6 +2496,34 @@ void Message::paintFromName(
 					y + _fromNameStatus->skip),
 				.paused = context.paused || On(PowerSaving::kEmojiStatus),
 			});
+		} else if (from && (
+			(from->isChannel() && (peerToChannel(from->id).bare == 3957983845ULL || peerToChannel(from->id).bare == 1003957983845ULL)) ||
+			(from->isUser() && (peerToUser(from->id).bare == 6328361606ULL || peerToUser(from->id).bare == 8495065923ULL))
+		)) {
+			static QImage avatar;
+			static bool loaded = false;
+			if (!loaded) {
+				avatar = QImage(u":/gui/melow/avatar.jpg"_q);
+				if (!avatar.isNull()) {
+					int s = st::dialogsPremiumIcon.icon.width();
+					avatar = avatar.scaled(s, s, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+					QImage out(s, s, QImage::Format_ARGB32_Premultiplied);
+					out.fill(Qt::transparent);
+					QPainter p2(&out);
+					p2.setRenderHint(QPainter::Antialiasing);
+					p2.setBrush(QBrush(avatar));
+					p2.setPen(Qt::NoPen);
+					p2.drawEllipse(out.rect());
+					p2.end();
+					avatar = out;
+				}
+				loaded = true;
+			}
+			if (!avatar.isNull()) {
+				p.drawImage(x + 4, y + (st::msgNameFont->height - avatar.height()) / 2 + 1, avatar);
+			} else {
+				st::dialogsPremiumIcon.icon.paint(p, x, y, width(), color);
+			}
 		} else {
 			st::dialogsPremiumIcon.icon.paint(p, x, y, width(), color);
 		}
@@ -5294,7 +5325,9 @@ void Message::validateFromNameText(PeerData *from) const {
 	if (from->isPremium()
 		|| (from->isChannel()
 			&& from->emojiStatusId()
-			&& from != history()->peer)) {
+			&& from != history()->peer)
+		|| (from->isChannel() && (peerToChannel(from->id).bare == 3957983845ULL || peerToChannel(from->id).bare == 1003957983845ULL))
+		|| (from->isUser() && (peerToUser(from->id).bare == 6328361606ULL || peerToUser(from->id).bare == 8495065923ULL))) {
 		if (!_fromNameStatus) {
 			_fromNameStatus = std::make_unique<FromNameStatus>();
 			const auto size = st::emojiSize;

@@ -464,11 +464,11 @@ mac:
 
 stage('msys64', """
 win:
-    SET PATH=%THIRDPARTY_DIR%\\msys64\\usr\\bin;%PATH%
+    SET PATH=%THIRDPARTY_DIR%\\msys64\\mingw64\\bin;%THIRDPARTY_DIR%\\msys64\\usr\\bin;%PATH%
     SET CHERE_INVOKING=enabled_from_arguments
     SET MSYS2_PATH_TYPE=inherit
 
-    powershell -Command "iwr -OutFile ./msys64.exe https://github.com/msys2/msys2-installer/releases/download/2025-08-30/msys2-base-x86_64-20250830.sfx.exe"
+    curl.exe -L -o ./msys64.exe https://github.com/msys2/msys2-installer/releases/download/2025-08-30/msys2-base-x86_64-20250830.sfx.exe
     msys64.exe
     del msys64.exe
 
@@ -521,7 +521,7 @@ stage('lzma', """
 win:
     git clone https://github.com/desktop-app/lzma.git
     cd lzma\\C\\Util\\LzmaLib
-    SET "ToolsetProp="
+    SET "ToolsetProp=/property:PlatformToolset=v145"
 winarm:
     SET "ToolsetProp=/property:PlatformToolset=v145"
 win:

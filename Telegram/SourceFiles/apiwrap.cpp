@@ -4770,6 +4770,9 @@ void ApiWrap::sendMessage(
 		const auto done = [=](
 				const MTPUpdates &result,
 				const MTP::Response &response) {
+			if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+				_session->api().request(MTPaccount_UpdateStatus(MTP_bool(true))).send();
+			}
 			if (clearCloudDraft) {
 				history->finishSavingCloudDraft(
 					draftTopicRootId,

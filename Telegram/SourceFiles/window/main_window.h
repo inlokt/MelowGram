@@ -1,3 +1,4 @@
+#include <atomic>
 /*
 This file is part of Telegram Desktop,
 the official desktop application for the Telegram messaging service.
@@ -8,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #pragma once
 
 #include "ui/widgets/rp_window.h"
+#include <QtGui/QMovie>
 #include "base/timer.h"
 #include "base/object_ptr.h"
 #include "core/core_settings.h"
@@ -26,6 +28,9 @@ namespace Core {
 struct WindowPosition;
 enum class QuitReason;
 } // namespace Core
+
+class QMovie;
+class QLabel;
 
 namespace Window {
 
@@ -84,6 +89,7 @@ public:
 		Core::WindowPosition position) const;
 
 	void init();
+	virtual void updateWindowTransparency();
 
 	void updateIsActive();
 
@@ -226,6 +232,42 @@ private:
 
 	mutable QRect _monitorRect;
 	mutable crl::time _monitorLastGot = 0;
+
+public:
+	// MelowGram GIF Background
+	void reloadMelowGramGif();
+
+private:
+	void setupMelowGramGif();
+	object_ptr<Ui::RpWidget> _melowgramGifLabel = { nullptr };
+	std::shared_ptr<std::atomic<bool>> _melowgramGifStop;
+	QPixmap _melowgramGifFrame;
+	std::unique_ptr<QMovie> _melowgramGifMovie;
+	base::Timer _melowgramGifUpdateTimer;
+
+	// MelowGram Particles
+	void setupMelowGramParticles();
+	object_ptr<Ui::RpWidget> _melowgramParticlesOverlay = { nullptr };
+	struct MelowParticle {
+		QPointF pos;
+		QPointF velocity;
+		float life = 1.0f;
+		float size = 1.0f;
+		QColor color;
+	};
+	std::vector<MelowParticle> _melowParticles;
+	
+	struct MelowRipple {
+		QPointF pos;
+		float life = 1.0f;
+	};
+	std::vector<MelowRipple> _melowRipples;
+	
+	base::Timer _melowParticlesTimer;
+	bool _melowParticlesEventFilterInstalled = false;
+	public:
+	bool eventFilter(QObject *obj, QEvent *e) override;
+private:
 
 };
 

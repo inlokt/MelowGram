@@ -1,3 +1,8 @@
+#include "crl/crl_async.h"
+#include "crl/crl_on_main.h"
+#include <QtGui/QImageReader>
+#include <QSvgRenderer>
+#include <QPainter>
 /*
 This file is part of Telegram Desktop,
 the official desktop application for the Telegram messaging service.
@@ -17,10 +22,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_separate_id.h"
 #include "window/window_session_controller.h"
 #include "window/window_lock_widgets.h"
+#include "window/themes/window_theme.h"
 #include "window/window_controller.h"
 #include "main/main_account.h" // Account::sessionValue.
 #include "main/main_domain.h"
 #include "core/application.h"
+#include "core/version.h"
 #include "core/sandbox.h"
 #include "core/shortcuts.h"
 #include "lang/lang_keys.h"
@@ -395,6 +402,9 @@ MainWindow::MainWindow(not_null<Controller*> controller)
 	}));
 }))
 , _body(body()) {
+	window()->setAttribute(Qt::WA_NoSystemBackground, false);
+	window()->setAttribute(Qt::WA_TranslucentBackground, true);
+
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
 		updatePalette();
@@ -453,6 +463,8 @@ MainWindow::MainWindow(not_null<Controller*> controller)
 	}
 
 	Shortcuts::Listen(this);
+	setupMelowGramParticles();
+	setupMelowGramGif();
 }
 
 Main::Account &MainWindow::account() const {
@@ -551,8 +563,27 @@ void MainWindow::init() {
 	}
 	refreshTitleWidget();
 
+	updateWindowTransparency();
 	updateTitle();
 	updateWindowIcon();
+}
+
+void MainWindow::updateWindowTransparency() {
+	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	if (blur) {
+		window()->setAttribute(Qt::WA_NoSystemBackground, false);
+		window()->setAttribute(Qt::WA_TranslucentBackground, true);
+	}
+	Window::Theme::ApplyMelowGramModifiers();
+	
+	// We no longer check MelowGramTransparency. Blackout does the job.
+	if (_melowgramGifLabel) {
+		_melowgramGifLabel->update();
+	}
+	if (body()) {
+		body()->update();
+	}
+	window()->update();
 }
 
 void MainWindow::handleStateChanged(Qt::WindowState state) {
@@ -562,6 +593,7 @@ void MainWindow::handleStateChanged(Qt::WindowState state) {
 		controller().updateIsActiveBlur();
 	} else {
 		controller().updateIsActiveFocus();
+		updateWindowTransparency();
 	}
 	Core::App().updateNonIdle();
 	using WorkMode = Core::Settings::WorkMode;
@@ -625,6 +657,8 @@ void MainWindow::activate() {
 
 void MainWindow::updatePalette() {
 	Ui::ForceFullRepaint(this);
+
+	reloadMelowGramGif();
 
 	auto p = palette();
 	p.setColor(QPalette::Window, st::windowBg->c);
@@ -852,7 +886,7 @@ void MainWindow::updateTitle() {
 		: Dialogs::Key();
 	const auto thread = key ? key.thread() : nullptr;
 	if (!thread) {
-		setTitle((user.isEmpty() ? u"Telegram"_q : user) + added);
+		setTitle((user.isEmpty() ? AppName.utf16() : user) + added);
 		return;
 	}
 	const auto history = thread->owningHistory();
@@ -1030,6 +1064,9 @@ void MainWindow::launchDrag(
 }
 
 MainWindow::~MainWindow() {
+	if (_melowgramGifStop) {
+		*_melowgramGifStop = true;
+	}
 	// Otherwise:
 	// ~QWidget
 	// QWidgetPrivate::close_helper
@@ -1199,6 +1236,259 @@ QRect CountInitialGeometry(
 		).arg(position.w
 		).arg(position.h));
 	return position.rect();
+}
+
+void MainWindow::setupMelowGramGif() {
+	if (Core::App().settings().readPref<bool>("MelowGramGifBackground", false)) {
+		const auto path = Core::App().settings().readPref<QString>("MelowGramGifPath", QString());
+		if (!path.isEmpty()) {
+			_melowgramGifMovie = std::make_unique<QMovie>(path);
+			if (_melowgramGifMovie->isValid()) {
+				_melowgramGifLabel.create(body());
+				_melowgramGifLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+				_melowgramGifLabel->show();
+				_melowgramGifLabel->lower();
+				
+				_melowgramGifLabel->paintRequest() | rpl::on_next([=] {
+					QPainter p(_melowgramGifLabel);
+					QPixmap pixmap = _melowgramGifMovie->currentPixmap();
+					if (!pixmap.isNull()) {
+						QSize s = pixmap.size();
+						QSize ws = _melowgramGifLabel->size();
+						s.scale(ws, Qt::KeepAspectRatioByExpanding);
+						int x = (ws.width() - s.width()) / 2;
+						int y = (ws.height() - s.height()) / 2;
+						
+						int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+						bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+						
+						p.setCompositionMode(QPainter::CompositionMode_Source);
+						if (blur && blackout < 100) {
+							p.fillRect(_melowgramGifLabel->rect(), Qt::transparent);
+						} else {
+							p.fillRect(_melowgramGifLabel->rect(), Qt::black);
+						}
+						
+						p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+						if (blur && blackout < 100) {
+							p.setOpacity(blackout / 100.0);
+						}
+						
+						p.drawPixmap(x, y, s.width(), s.height(), pixmap);
+					}
+				}, _melowgramGifLabel->lifetime());
+
+				_melowgramGifUpdateTimer.setCallback([=] {
+					if (_melowgramGifLabel && window()->windowState() != Qt::WindowMinimized) {
+						_melowgramGifMovie->jumpToNextFrame();
+						_melowgramGifLabel->update();
+					}
+				});
+				_melowgramGifUpdateTimer.callEach(66); // ~15 FPS
+				
+				body()->sizeValue() | rpl::on_next([=](QSize size) {
+					if (_melowgramGifLabel) {
+						_melowgramGifLabel->setGeometry(QRect(QPoint(0, 0), size));
+					}
+				}, _melowgramGifLabel->lifetime());
+
+				_melowgramGifMovie->start();
+				_melowgramGifMovie->setPaused(true);
+			}
+		}
+	}
+}
+
+void MainWindow::reloadMelowGramGif() {
+	if (_melowgramGifLabel) {
+		_melowgramGifLabel.destroy();
+	}
+	if (_melowgramGifMovie) {
+		_melowgramGifMovie.reset();
+	}
+	_melowgramGifUpdateTimer.cancel();
+	setupMelowGramGif();
+	
+	if (body()) {
+		body()->update();
+	}
+	updateWindowTransparency();
+}
+
+void MainWindow::setupMelowGramParticles() {
+	_melowgramParticlesOverlay.create(body());
+	_melowgramParticlesOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_melowgramParticlesOverlay->show();
+
+	if (!_melowParticlesEventFilterInstalled) {
+		_melowParticlesEventFilterInstalled = true;
+		QCoreApplication::instance()->installEventFilter(this);
+	}
+
+	_melowgramParticlesOverlay->paintRequest() | rpl::on_next([=](QRect clip) {
+		Painter p(_melowgramParticlesOverlay.data());
+		p.setRenderHint(QPainter::Antialiasing);
+
+		float connectDist = Core::App().settings().readPref<int>("MelowGramParticlesDistance", 70);
+		float connectDistSq = connectDist * connectDist;
+
+		for (size_t i = 0; i < _melowParticles.size(); ++i) {
+			if (_melowParticles[i].life <= 0) continue;
+			for (size_t j = i + 1; j < _melowParticles.size(); ++j) {
+				if (_melowParticles[j].life <= 0) continue;
+				float dx = _melowParticles[i].pos.x() - _melowParticles[j].pos.x();
+				float dy = _melowParticles[i].pos.y() - _melowParticles[j].pos.y();
+				float distSq = dx*dx + dy*dy;
+				if (distSq < connectDistSq) {
+					float alpha = (1.0f - distSq / connectDistSq) * std::min(_melowParticles[i].life, _melowParticles[j].life) * 0.5f;
+					QColor c = _melowParticles[i].color;
+					c.setAlphaF(alpha);
+					QPen pen(c);
+					pen.setWidthF(1.0f);
+					p.setPen(pen);
+					p.drawLine(_melowParticles[i].pos, _melowParticles[j].pos);
+				}
+			}
+		}
+
+		for (const auto &particle : _melowParticles) {
+			int alpha = particle.life * 255;
+			if (alpha <= 0) continue;
+			
+			// A glowing effect: draw multiple circles
+			QColor c = particle.color;
+			
+			// Outer glow
+			float glowMul = Core::App().settings().readPref<int>("MelowGramParticlesGlowSize100", 200) / 100.0f;
+			c.setAlphaF(particle.life * 0.3f);
+			p.setPen(Qt::NoPen);
+			p.setBrush(c);
+			p.drawEllipse(particle.pos, particle.size * glowMul, particle.size * glowMul);
+			
+			// Core
+			c.setAlphaF(particle.life);
+			p.setBrush(c);
+			p.drawEllipse(particle.pos, particle.size, particle.size);
+		}
+
+		for (const auto &r : _melowRipples) {
+			if (r.life <= 0) continue;
+			
+			float progress = 1.0f - r.life; // 0.0 to 1.0
+			float radius = 10.0f + progress * 80.0f; // expands
+			
+			QColor c = st::windowBgActive->c;
+			
+			// Outer wave
+			c.setAlphaF(r.life * 0.8f);
+			QPen pen(c);
+			pen.setWidthF(1.0f + r.life * 4.0f);
+			p.setPen(pen);
+			p.setBrush(Qt::NoBrush);
+			p.drawEllipse(r.pos, radius, radius);
+			
+			// Inner wave for water drop
+			if (progress > 0.1f) {
+				float innerRadius = radius * 0.5f;
+				c.setAlphaF(r.life * 0.4f);
+				pen.setColor(c);
+				pen.setWidthF(1.0f + r.life * 2.0f);
+				p.setPen(pen);
+				p.drawEllipse(r.pos, innerRadius, innerRadius);
+			}
+		}
+	}, _melowgramParticlesOverlay->lifetime());
+
+	_melowParticlesTimer.setCallback([=] {
+		bool alive = false;
+		for (auto &p : _melowParticles) {
+			if (p.life > 0.0f) {
+				p.pos += p.velocity;
+				p.life -= 0.02f; // Fade out speed
+				p.size += 0.1f; // Expand slightly
+				alive = true;
+			}
+		}
+		for (auto &r : _melowRipples) {
+			if (r.life > 0.0f) {
+				r.life -= 0.025f; // Fade speed
+				alive = true;
+			}
+		}
+		if (alive) {
+			_melowgramParticlesOverlay->update();
+		} else {
+			if (!_melowParticles.empty()) _melowParticles.clear();
+			if (!_melowRipples.empty()) _melowRipples.clear();
+			_melowgramParticlesOverlay->update();
+		}
+	});
+
+	body()->sizeValue() | rpl::on_next([=](QSize size) {
+		_melowgramParticlesOverlay->resize(size);
+		_melowgramParticlesOverlay->raise();
+	}, _melowgramParticlesOverlay->lifetime());
+}
+
+bool MainWindow::eventFilter(QObject *obj, QEvent *e) {
+	if (e->type() == QEvent::MouseMove || e->type() == QEvent::MouseButtonPress) {
+		bool onMove = Core::App().settings().readPref<bool>("MelowGramParticlesMove", false);
+		bool onClick = Core::App().settings().readPref<bool>("MelowGramParticlesClick", false);
+		bool onMercury = Core::App().settings().readPref<bool>("MelowGramMercury", false);
+
+		if ((onMove && e->type() == QEvent::MouseMove) || ((onClick || onMercury) && e->type() == QEvent::MouseButtonPress)) {
+			QMouseEvent *me = static_cast<QMouseEvent*>(e);
+			
+			// Only spawn if within our window
+			if (window() && window()->windowHandle()) {
+				QPoint globalPos = me->globalPos();
+				if (window()->geometry().contains(globalPos)) {
+					QPoint localPos = body()->mapFromGlobal(globalPos);
+
+					if (e->type() == QEvent::MouseButtonPress && onMercury) {
+						MelowRipple r;
+						r.pos = localPos;
+						r.life = 1.0f;
+						_melowRipples.push_back(r);
+						if (_melowRipples.size() > 10) {
+							_melowRipples.erase(_melowRipples.begin());
+						}
+						if (!_melowParticlesTimer.isActive()) {
+							_melowParticlesTimer.callEach(16);
+						}
+					}
+
+					if ((onMove && e->type() == QEvent::MouseMove) || (onClick && e->type() == QEvent::MouseButtonPress)) {
+						MelowParticle p;
+						p.pos = localPos;
+						
+						// Random velocity
+						float speedMul = Core::App().settings().readPref<int>("MelowGramParticlesSpeed", 30) / 30.0f;
+						float vx = ((std::rand() % 100 - 50) / 25.0f) * speedMul;
+						float vy = ((std::rand() % 100 - 50) / 25.0f) * speedMul;
+						p.velocity = QPointF(vx, vy);
+						
+						float sizeMul = Core::App().settings().readPref<int>("MelowGramParticlesSize", 15) / 15.0f;
+						p.size = (2.0f + (std::rand() % 20) / 10.0f) * sizeMul;
+						
+						// Theme color
+						p.color = st::windowBgActive->c;
+
+						_melowParticles.push_back(p);
+						int maxCount = Core::App().settings().readPref<int>("MelowGramParticlesCount", 100);
+						if (_melowParticles.size() > maxCount) {
+							_melowParticles.erase(_melowParticles.begin());
+						}
+
+						if (!_melowParticlesTimer.isActive()) {
+							_melowParticlesTimer.callEach(16); // ~60fps
+						}
+					}
+				}
+			}
+		}
+	}
+	return Ui::RpWindow::eventFilter(obj, e);
 }
 
 } // namespace Window

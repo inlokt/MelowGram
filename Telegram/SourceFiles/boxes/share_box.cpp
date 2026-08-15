@@ -835,7 +835,7 @@ ShareBox::Inner::Inner(
 , _chatsIndexed(_defaultChatsIndexed.get()) {
 	_rowsTop = st::shareRowsTop;
 	_rowHeight = st::shareRowHeight;
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	if (_descriptor.moneyRestrictionError) {
 		const auto session = _descriptor.session;

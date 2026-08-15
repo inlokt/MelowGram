@@ -289,7 +289,7 @@ void TranslateBar::setup(not_null<History*> history) {
 	};
 	const auto button = static_cast<Ui::AbstractButton*>(_wrap.entity());
 	button->resize(0, st::historyTranslateBarHeight);
-	button->setAttribute(Qt::WA_OpaquePaintEvent);
+	button->setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	button->paintRequest(
 	) | rpl::on_next([=](QRect clip) {

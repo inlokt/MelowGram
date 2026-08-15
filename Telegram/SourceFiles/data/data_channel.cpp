@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/session/send_as_peers.h"
 #include "base/unixtime.h"
 #include "core/application.h"
+#include "core/core_settings.h"
 #include "history/history.h"
 #include "history/history_item.h"
 #include "api/api_chat_invite.h"
@@ -158,6 +159,17 @@ void ChannelData::setUsernames(const Data::Usernames &newUsernames) {
 }
 
 QString ChannelData::username() const {
+	if (Core::IsAppLaunched()) {
+		bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
+		if (streamerMode) {
+			int scope = Core::App().settings().readPref<int>("MelowGramStreamerModeScope", 0);
+			if (scope == 0) {
+				if (!_username.username().isEmpty()) {
+					return u"Hide Element"_q;
+				}
+			}
+		}
+	}
 	return _username.username();
 }
 
@@ -166,6 +178,18 @@ QString ChannelData::editableUsername() const {
 }
 
 const std::vector<QString> &ChannelData::usernames() const {
+	static const auto hiddenUsernames = std::vector<QString>{ u"Hide Element"_q };
+	if (Core::IsAppLaunched()) {
+		bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
+		if (streamerMode) {
+			int scope = Core::App().settings().readPref<int>("MelowGramStreamerModeScope", 0);
+			if (scope == 0) {
+				if (!_username.usernames().empty()) {
+					return hiddenUsernames;
+				}
+			}
+		}
+	}
 	return _username.usernames();
 }
 

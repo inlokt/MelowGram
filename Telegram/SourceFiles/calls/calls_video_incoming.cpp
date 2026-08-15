@@ -1072,7 +1072,7 @@ Panel::Incoming::Incoming(
 	Ui::GL::Backend backend)
 : _surface(Ui::GL::CreateSurface(parent, chooseRenderer(backend)))
 , _track(track) {
-	widget()->setAttribute(Qt::WA_OpaquePaintEvent);
+	widget()->setAttribute(Qt::WA_OpaquePaintEvent, false);
 	widget()->setAttribute(Qt::WA_TransparentForMouseEvents);
 }
 

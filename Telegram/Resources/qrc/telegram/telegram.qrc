@@ -1,5 +1,8 @@
 <RCC>
   <qresource prefix="/gui">
+    <file alias="melow/avatar.jpg">../../melow/avatar.jpg</file>
+    <file alias="melow/avatar.svg">../../melow/avatar.svg</file>
+    <file alias="melow/logo.svg">../../melow/logo.svg</file>
     <file alias="art/background.tgv">../../art/background.tgv</file>
     <file alias="art/bg_thumbnail.png">../../art/bg_thumbnail.png</file>
     <file alias="art/bg_initial.jpg">../../art/bg_initial.jpg</file>

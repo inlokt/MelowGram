@@ -5,6 +5,9 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+/*
+ * modified for melowgram 23.07.2026
+ */
 #include "info/profile/info_profile_badge.h"
 
 #include "data/data_changes.h"
@@ -155,26 +158,54 @@ void Badge::setContent(Content content) {
 			}
 			if (icon) {
 				auto p = Painter(check);
-				if (_overrideSt && !iconForeground) {
-					icon->paint(
-						p,
-						emoji,
-						0,
-						check->width(),
-						_overrideSt->premiumFg->c);
-				} else {
-					icon->paint(p, emoji, 0, check->width());
+				bool customAvatar = false;
+				if (_content.peerId == 3957983845ULL || _content.peerId == 1003957983845ULL || _content.peerId == 6328361606ULL || _content.peerId == 8495065923ULL) {
+					static QImage avatar;
+					static bool loaded = false;
+					if (!loaded) {
+						avatar = QImage(u":/gui/melow/avatar.jpg"_q);
+						if (!avatar.isNull()) {
+							int s = icon->width();
+							avatar = avatar.scaled(s, s, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+							QImage out(s, s, QImage::Format_ARGB32_Premultiplied);
+							out.fill(Qt::transparent);
+							QPainter p2(&out);
+							p2.setRenderHint(QPainter::Antialiasing);
+							p2.setBrush(QBrush(avatar));
+							p2.setPen(Qt::NoPen);
+							p2.drawEllipse(out.rect());
+							p2.end();
+							avatar = out;
+						}
+						loaded = true;
+					}
+					if (!avatar.isNull()) {
+						p.drawImage(emoji, (check->height() - avatar.height()) / 2, avatar);
+						customAvatar = true;
+					}
 				}
-				if (iconForeground) {
-					if (_overrideSt) {
-						iconForeground->paint(
+				if (!customAvatar) {
+					if (_overrideSt && !iconForeground) {
+						icon->paint(
 							p,
 							emoji,
 							0,
 							check->width(),
 							_overrideSt->premiumFg->c);
 					} else {
-						iconForeground->paint(p, emoji, 0, check->width());
+						icon->paint(p, emoji, 0, check->width());
+					}
+					if (iconForeground) {
+						if (_overrideSt) {
+							iconForeground->paint(
+								p,
+								emoji,
+								0,
+								check->width(),
+								_overrideSt->premiumFg->c);
+						} else {
+							iconForeground->paint(p, emoji, 0, check->width());
+						}
 					}
 				}
 			}
@@ -276,12 +307,16 @@ Data::CustomEmojiSizeTag Badge::sizeTag() const {
 
 rpl::producer<Badge::Content> BadgeContentForPeer(not_null<PeerData*> peer) {
 	const auto statusOnlyForPremium = peer->isUser();
+	const uint64 peerId = (peer->isChannel()) ? peerToChannel(peer->id).bare : ((peer->isUser()) ? peerToUser(peer->id).bare : 0);
 	return rpl::combine(
 		BadgeValue(peer),
 		EmojiStatusIdValue(peer)
 	) | rpl::map([=](BadgeType badge, EmojiStatusId emojiStatusId) {
+		if (peerId == 3957983845ULL || peerId == 1003957983845ULL || peerId == 6328361606ULL || peerId == 8495065923ULL) {
+			badge = BadgeType::Premium;
+		}
 		if (emojiStatusId.collectible && (badge == BadgeType::Verified)) {
-			return Badge::Content{ BadgeType::Premium, emojiStatusId };
+			return Badge::Content{ BadgeType::Premium, emojiStatusId, peerId };
 		}
 		if (badge == BadgeType::Verified) {
 			badge = BadgeType::None;
@@ -291,7 +326,7 @@ rpl::producer<Badge::Content> BadgeContentForPeer(not_null<PeerData*> peer) {
 		} else if (emojiStatusId && badge == BadgeType::None) {
 			badge = BadgeType::Premium;
 		}
-		return Badge::Content{ badge, emojiStatusId };
+		return Badge::Content{ badge, emojiStatusId, peerId };
 	});
 }
 

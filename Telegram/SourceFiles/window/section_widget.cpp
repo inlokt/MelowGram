@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "window/section_widget.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 
 #include "mainwidget.h"
 #include "mainwindow.h"
@@ -392,9 +394,18 @@ void SectionWidget::PaintBackground(
 		QSize fill,
 		QRect clip,
 		bool paused) {
+	
+	const auto blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+	const auto blackoutOpacity = blackout < 100 ? (blackout / 100.0) : 1.0;
+
+	if (blackout < 100) {
+		p.setOpacity(blackoutOpacity);
+	}
+
 	const auto &background = theme->background();
 	if (background.colorForFill) {
 		p.fillRect(clip, *background.colorForFill);
+		p.setOpacity(1.0);
 		return;
 	}
 	const auto &gradient = background.gradientForFill;
@@ -416,7 +427,7 @@ void SectionWidget::PaintBackground(
 			p.translate(center);
 			p.rotate(cache.giftRotation);
 			p.translate(-center);
-			p.setOpacity(0.5);
+			p.setOpacity(0.5 * blackoutOpacity);
 			cache.gift->paint(p, {
 				.textColor = st::windowFg->c,
 				.size = QSize(size, size),
@@ -468,11 +479,11 @@ void SectionWidget::PaintBackground(
 		const auto fade = (state.shown < 1. && !gradient.isNull());
 		if (fade) {
 			paintCache(state.was);
-			p.setOpacity(state.shown);
+			p.setOpacity(state.shown * blackoutOpacity);
 		}
 		paintCache(state.now);
 		if (fade) {
-			p.setOpacity(1.);
+			p.setOpacity(blackoutOpacity);
 		}
 		return;
 	}

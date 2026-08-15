@@ -43,6 +43,8 @@ namespace Intro {
 namespace details {
 namespace {
 
+QImage *melowLogoPtr = nullptr;
+
 void PrepareSupportMode(not_null<Main::Session*> session) {
 	using ::Data::AutoDownload::Full;
 
@@ -77,6 +79,9 @@ Step::Step(
 		_hasCover
 			? st::introCoverDescription
 			: st::introDescription)) {
+	if (!melowLogoPtr) {
+		melowLogoPtr = new QImage(QImage(u"C:/Users/1337/Pictures/melowgram/Telegram/Resources/melow/logo.png"_q).scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+	}
 	hide();
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
@@ -476,7 +481,15 @@ void Step::paintCover(QPainter &p, int top) {
 		planeLeft += deltaLeft;
 	//	planeTop += top;
 	}
-	st::introCoverIcon.paint(p, planeLeft, planeTop, width());
+	if (melowLogoPtr && !melowLogoPtr->isNull()) {
+		int targetWidth = melowLogoPtr->width();
+		int targetHeight = melowLogoPtr->height();
+		int x = (width() - targetWidth) / 2;
+		int y = top + (st::introCoverHeight - targetHeight) / 2;
+		p.drawImage(QRect(x, y, targetWidth, targetHeight), *melowLogoPtr);
+	} else {
+		st::introCoverIcon.paint(p, planeLeft, planeTop, width());
+	}
 }
 
 int Step::contentLeft() const {

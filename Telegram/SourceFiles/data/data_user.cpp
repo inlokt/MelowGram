@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_text_entities.h"
 #include "base/timer_rpl.h"
 #include "core/application.h"
+#include "core/core_settings.h"
 #include "storage/localstorage.h"
 #include "storage/storage_account.h"
 #include "storage/storage_user_photos.h"
@@ -724,6 +725,17 @@ bool UserData::canShareThisContactFast() const {
 }
 
 QString UserData::username() const {
+	if (Core::IsAppLaunched()) {
+		bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
+		if (streamerMode) {
+			int scope = Core::App().settings().readPref<int>("MelowGramStreamerModeScope", 0);
+			if (scope == 0 || (scope == 1 && isSelf())) {
+				if (!_username.username().isEmpty()) {
+					return u"Hide Element"_q;
+				}
+			}
+		}
+	}
 	return _username.username();
 }
 
@@ -732,6 +744,18 @@ QString UserData::editableUsername() const {
 }
 
 const std::vector<QString> &UserData::usernames() const {
+	static const auto hiddenUsernames = std::vector<QString>{ u"Hide Element"_q };
+	if (Core::IsAppLaunched()) {
+		bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
+		if (streamerMode) {
+			int scope = Core::App().settings().readPref<int>("MelowGramStreamerModeScope", 0);
+			if (scope == 0 || (scope == 1 && isSelf())) {
+				if (!_username.usernames().empty()) {
+					return hiddenUsernames;
+				}
+			}
+		}
+	}
 	return _username.usernames();
 }
 
@@ -767,6 +791,22 @@ void UserData::setBotVerifyDetailsIcon(DocumentId iconId) {
 }
 
 const QString &UserData::phone() const {
+	static const auto hiddenPhone = QString(u"Hide Element"_q);
+	if (Core::IsAppLaunched()) {
+		bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
+		if (streamerMode) {
+			int scope = Core::App().settings().readPref<int>("MelowGramStreamerModeScope", 0);
+			if (scope == 0 || (scope == 1 && isSelf())) {
+				if (!_phone.isEmpty()) {
+					return hiddenPhone;
+				}
+			}
+		}
+	}
+	return _phone;
+}
+
+const QString &UserData::realPhone() const {
 	return _phone;
 }
 

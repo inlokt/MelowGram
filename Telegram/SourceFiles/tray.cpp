@@ -77,9 +77,10 @@ void Tray::rebuildMenu() {
 		auto minimizeText = _textUpdates.events(
 		) | rpl::map([=] {
 			_activeForTrayIconAction = Core::App().isActiveForTrayMenu();
-			return _activeForTrayIconAction
+			auto text = _activeForTrayIconAction
 				? tr::lng_minimize_to_tray(tr::now)
 				: tr::lng_open_from_tray(tr::now);
+			return text.replace(u"Telegram"_q, u"MelowGram"_q);
 		});
 
 		_tray.addAction(
@@ -100,7 +101,10 @@ void Tray::rebuildMenu() {
 			[=] { toggleSoundNotifications(); });
 	}
 
-	_tray.addAction(tr::lng_quit_from_tray(), [] { Core::Quit(); });
+	_tray.addAction(
+		tr::lng_quit_from_tray()
+			| rpl::map([](QString s) { return s.replace(u"Telegram"_q, u"MelowGram"_q); }),
+		[] { Core::Quit(); });
 
 	TrayAccountsMenu::Fill(_tray);
 

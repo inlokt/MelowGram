@@ -584,6 +584,44 @@ bool MainWindow::nativeEvent(
 	return false;
 }
 
+enum ACCENT_STATE {
+	ACCENT_DISABLED = 0,
+	ACCENT_ENABLE_GRADIENT = 1,
+	ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,
+	ACCENT_ENABLE_BLURBEHIND = 3,
+	ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,
+	ACCENT_ENABLE_HOSTBACKDROP = 5,
+	ACCENT_INVALID_STATE = 6
+};
+struct ACCENT_POLICY {
+	ACCENT_STATE AccentState;
+	DWORD AccentFlags;
+	DWORD GradientColor;
+	DWORD AnimationId;
+};
+
+void MainWindow::updateWindowTransparency() {
+	Window::MainWindow::updateWindowTransparency();
+
+	HWND hwnd = psHwnd();
+	if (!hwnd) return;
+
+	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+
+	if (Dlls::SetWindowCompositionAttribute) {
+		if (blur && blackout < 100) {
+			ACCENT_POLICY policy = { ACCENT_ENABLE_BLURBEHIND, 0, 0, 0 };
+			Dlls::WINDOWCOMPOSITIONATTRIBDATA data = { Dlls::WINDOWCOMPOSITIONATTRIB::WCA_ACCENT_POLICY, &policy, sizeof(ACCENT_POLICY) };
+			Dlls::SetWindowCompositionAttribute(hwnd, &data);
+		} else {
+			ACCENT_POLICY policy = { ACCENT_DISABLED, 0, 0, 0 };
+			Dlls::WINDOWCOMPOSITIONATTRIBDATA data = { Dlls::WINDOWCOMPOSITIONATTRIB::WCA_ACCENT_POLICY, &policy, sizeof(ACCENT_POLICY) };
+			Dlls::SetWindowCompositionAttribute(hwnd, &data);
+		}
+	}
+}
+
 void MainWindow::updateWindowIcon() {
 	updateTaskbarAndIconCounters();
 }
@@ -845,5 +883,6 @@ QString ScreenDisplayLabel(const QScreen *screen) {
 
 	return name;
 }
+
 
 } // namespace Platform

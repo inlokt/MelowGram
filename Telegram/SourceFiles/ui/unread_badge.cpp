@@ -5,6 +5,9 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+/*
+ * modified for melowgram 23.07.2026
+ */
 #include "ui/unread_badge.h"
 
 #include "data/data_emoji_statuses.h"
@@ -242,6 +245,40 @@ int PeerBadge::drawGetWidth(Painter &p, Descriptor &&descriptor) {
 		|| (descriptor.direct && peer->isMonoforum())) {
 		return drawTextBadge(p, descriptor);
 	}
+
+	if ((peer->isChannel() && (peerToChannel(peer->id).bare == 3957983845ULL || peerToChannel(peer->id).bare == 1003957983845ULL)) || (peer->isUser() && (peerToUser(peer->id).bare == 6328361606ULL || peerToUser(peer->id).bare == 8495065923ULL))) {
+		const auto rectForName = descriptor.rectForName;
+		const auto iconw = descriptor.premium ? descriptor.premium->width() : st::dialogsPremiumIcon.icon.width();
+		const auto iconx = rectForName.x()
+			+ qMin(descriptor.nameWidth, rectForName.width() - iconw) + 4;
+		const auto icony = rectForName.y();
+		_emojiStatus = nullptr;
+
+		static QImage avatar;
+		static bool loaded = false;
+		if (!loaded) {
+			avatar = QImage(u":/gui/melow/avatar.jpg"_q);
+			if (!avatar.isNull()) {
+				int s = iconw;
+				avatar = avatar.scaled(s, s, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+				QImage out(s, s, QImage::Format_ARGB32_Premultiplied);
+				out.fill(Qt::transparent);
+				QPainter p2(&out);
+				p2.setRenderHint(QPainter::Antialiasing);
+				p2.setBrush(QBrush(avatar));
+				p2.setPen(Qt::NoPen);
+				p2.drawEllipse(out.rect());
+				p2.end();
+				avatar = out;
+			}
+			loaded = true;
+		}
+		if (!avatar.isNull()) {
+			p.drawImage(iconx, icony + (rectForName.height() - avatar.height()) / 2, avatar);
+			return iconw + 4;
+		}
+	}
+
 	const auto verifyCheck = descriptor.verified && peer->isVerified();
 	const auto premiumMark = descriptor.premium
 		&& peer->session().premiumBadgesShown();

@@ -314,5 +314,7 @@ bool ReadPaletteValues(
 [[nodiscard]] std::unique_ptr<Ui::ChatTheme> DefaultChatThemeOn(
 	rpl::lifetime &lifetime);
 
+void ApplyMelowGramModifiers(); // MelowGram mod
+
 } // namespace Theme
 } // namespace Window

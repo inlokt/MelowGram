@@ -5,6 +5,12 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
+#include "core/application.h"
+#include "core/core_settings.h"
+#include "core/application.h"
+#include "core/core_settings.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "info/profile/info_profile_top_bar.h"
 
 #include "api/api_peer_colors.h"
@@ -1977,6 +1983,8 @@ void TopBar::updateStatusPosition(float64 progressCurrent) {
 
 	_status->moveToLeft(statusLeft + statusShift, statusTop);
 
+
+
 	if (_showLastSeen->toggled()) {
 		_showLastSeen->moveToLeft(
 			statusLeft
@@ -2587,6 +2595,7 @@ void TopBar::applyTabSwapProgress(float64 progress) {
 	if (!_forumButton) {
 		_status->setOpacity(1. - progress);
 		_status->setVisible(progress < 1.);
+
 		updateStatusPosition(_progress.current());
 	}
 	update();

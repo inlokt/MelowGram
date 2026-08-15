@@ -63,7 +63,7 @@ Inner::Inner(
 	resize(st::emojiPanWidth - st::emojiScroll.width - st::roundRadiusSmall, st::inlineResultsMinHeight);
 
 	setMouseTracking(true);
-	setAttribute(Qt::WA_OpaquePaintEvent);
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 
 	_controller->session().downloaderTaskFinished(
 	) | rpl::on_next([=] {
