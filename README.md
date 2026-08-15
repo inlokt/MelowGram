@@ -1,4 +1,6 @@
-# 🍃 [MelowGram][melowgram]
+# 🍃 [MelowGram][melowgram_repo]
+
+[![Telegram Channel](https://img.shields.io/badge/channel-blue?logo=telegram&labelColor=gray)](https://t.me/melowdesktop)
 
 MelowGram is a fork of [Telegram Desktop][telegram_repo] with additional features for customization and more, based on [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol.
 The source code is published under GPLv3 with OpenSSL exception, the license is available [here][license].
@@ -47,6 +49,7 @@ The source code is published under GPLv3 with OpenSSL exception, the license is 
 * Ada ([Apache License 2.0](https://github.com/ada-url/ada/blob/main/LICENSE-APACHE))
 
 [//]: # (LINKS)
+[melowgram_repo]: https://github.com/inlokt/MelowGram/
 [melowgram]: https://t.me/melowdesktop
 [telegram_repo]: https://github.com/telegramdesktop/tdesktop
 [telegram]: https://telegram.org
