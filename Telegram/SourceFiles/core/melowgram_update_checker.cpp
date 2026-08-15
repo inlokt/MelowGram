@@ -7,19 +7,20 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/melowgram_update_checker.h"
 
-#include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QProcess>
+#include <QtCore/QScopeGuard>
 #include <QtCore/QStringList>
+#include <QtCore/QTimer>
 #include <QtCore/QUrl>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
 
-#include "core/core_settings.h"
+#include "settings.h"
 
 namespace Core {
 namespace {
@@ -44,14 +45,16 @@ namespace {
 	return result;
 }
 
-[[nodiscard]] bool IsVersionGreater(const QString &remote, const QString &local) {
+[[nodiscard]] bool IsVersionGreater(
+		const QString &remote,
+		const QString &local) {
 	if (remote.isEmpty() || local.isEmpty()) {
 		return false;
 	}
 	const auto remoteParts = ParseVersionNumbers(remote);
 	const auto localParts = ParseVersionNumbers(local);
 	const auto count = std::max(remoteParts.size(), localParts.size());
-	for (auto i = 0; i < count; ++i) {
+	for (auto i = std::size_t(0); i < count; ++i) {
 		const auto r = (i < remoteParts.size()) ? remoteParts[i] : 0;
 		const auto l = (i < localParts.size()) ? localParts[i] : 0;
 		if (r > l) {
@@ -64,26 +67,36 @@ namespace {
 }
 
 [[nodiscard]] QString ReadLocalVersionTag() {
-	const auto localPath = QFile::exists(cExeDir() + u"version.json"_q)
-		? (cExeDir() + u"version.json"_q)
-		: (cWorkingDir() + u"version.json"_q);
-	auto localFile = QFile(localPath);
-	if (!localFile.open(QIODevice::ReadOnly)) {
-		return QString();
+	const auto tryPath = [](const QString &dir) -> QString {
+		const auto path = dir + u"version.json"_q;
+		auto f = QFile(path);
+		if (!f.open(QIODevice::ReadOnly)) {
+			return QString();
+		}
+		const auto doc = QJsonDocument::fromJson(f.readAll());
+		if (!doc.isObject()) {
+			return QString();
+		}
+		return doc.object().value(u"tag_name"_q).toString().trimmed();
+	};
+	auto tag = tryPath(cExeDir());
+	if (tag.isEmpty()) {
+		tag = tryPath(cWorkingDir());
 	}
-	const auto doc = QJsonDocument::fromJson(localFile.readAll());
-	if (!doc.isObject()) {
-		return QString();
-	}
-	return doc.object().value(u"tag_name"_q).toString().trimmed();
+	return tag;
 }
 
 void LaunchUpdater() {
-	const auto updaterPath = QFile::exists(cExeDir() + u"Updater.exe"_q)
-		? (cExeDir() + u"Updater.exe"_q)
-		: (cWorkingDir() + u"Updater.exe"_q);
-	if (QFile::exists(updaterPath)) {
-		QProcess::startDetached(updaterPath, QStringList());
+	const auto tryPath = [](const QString &dir) -> bool {
+		const auto path = dir + u"Updater.exe"_q;
+		if (QFile::exists(path)) {
+			QProcess::startDetached(path, QStringList());
+			return true;
+		}
+		return false;
+	};
+	if (!tryPath(cExeDir())) {
+		tryPath(cWorkingDir());
 	}
 }
 
@@ -92,19 +105,21 @@ public:
 	Checker() = default;
 
 	void start() {
-		const auto url = QUrl(u"https://api.github.com/repos/inlokt/MelowGram/releases/latest"_q);
+		const auto url = QUrl(
+			u"https://api.github.com/repos/inlokt/MelowGram/releases/latest"_q);
 		auto request = QNetworkRequest(url);
 		request.setHeader(QNetworkRequest::UserAgentHeader, u"MelowGram"_q);
 		request.setRawHeader("Accept", "application/vnd.github.v3+json");
 		request.setAttribute(
 			QNetworkRequest::RedirectPolicyAttribute,
 			QNetworkRequest::NoLessSafeRedirectPolicy);
+		request.setTransferTimeout(10000);
 
 		const auto manager = new QNetworkAccessManager(this);
 		const auto reply = manager->get(request);
 
 		connect(reply, &QNetworkReply::finished, this, [=] {
-			const auto guard = gsl::finally([=] {
+			const auto deleteGuard = qScopeGuard([=] {
 				reply->deleteLater();
 				deleteLater();
 			});
@@ -145,8 +160,10 @@ public:
 } // namespace
 
 void CheckMelowGramUpdate() {
-	const auto checker = new Checker();
-	checker->start();
+	QTimer::singleShot(3000, [] {
+		const auto checker = new Checker();
+		checker->start();
+	});
 }
 
 } // namespace Core
