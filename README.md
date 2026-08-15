@@ -7,6 +7,10 @@ The source code is published under GPLv3 with OpenSSL exception, the license is 
 
 [![Preview of MelowGram][preview_image]][preview_image_url]
 
+## Reminder
+
+The client has its own installer; using it is much more convenient than manually downloading every update. If you'd like to use it, here is the link: [click][installer]
+
 ## Features
 
 - The ability to set animated GIF images as wallpaper
@@ -49,6 +53,7 @@ The source code is published under GPLv3 with OpenSSL exception, the license is 
 * Ada ([Apache License 2.0](https://github.com/ada-url/ada/blob/main/LICENSE-APACHE))
 
 [//]: # (LINKS)
+[installer]: https://github.com/inlokt/MelowGram/releases/tag/Installer
 [melowgram_repo]: https://github.com/inlokt/MelowGram/
 [melowgram]: https://t.me/melowdesktop
 [telegram_repo]: https://github.com/telegramdesktop/tdesktop
