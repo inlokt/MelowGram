@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_message_reactions.h"
 #include "data/data_saved_sublist.h"
 #include "data/data_session.h"
+#include "history/history_item_helpers.h"
 #include "data/data_user.h"
 #include "data/data_chat.h"
 #include "data/data_channel.h"
@@ -4800,6 +4801,12 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
 		cancelReplyMessage();
 		return;
 	}
+	if (const auto item = _history->owner().message(id.messageId)) {
+		if (item->isMelowgramDeleted()) {
+			replyToDeletedMessage(item, id);
+			return;
+		}
+	}
 	if (isEditingMessage()) {
 		const auto key = draftKey(DraftType::Normal);
 		Assert(key.topicRootId() == id.topicRootId);
@@ -4820,6 +4827,24 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
 		_header->replyToMessage(id);
 	}
 	saveDraftWithTextNow();
+}
+
+void ComposeControls::replyToDeletedMessage(
+		not_null<HistoryItem*> item,
+		const FullReplyTo &fields) {
+	cancelReplyMessage();
+	const auto existing = _field->getTextWithTags();
+	auto quote = FormatDeletedMessageQuote(item, fields);
+	if (!existing.text.isEmpty()) {
+		const auto shift = int(quote.text.size());
+		for (auto tag : existing.tags) {
+			tag.offset += shift;
+			quote.tags.push_back(tag);
+		}
+		quote.text += existing.text;
+	}
+	setFieldText(quote);
+	_field->setFocus();
 }
 
 void ComposeControls::cancelReplyMessage() {

@@ -229,6 +229,9 @@ public:
 	void replyToMessage(
 		not_null<HistoryItem*> item,
 		FullReplyTo fields = {});
+	void replyToDeletedMessage(
+		not_null<HistoryItem*> item,
+		const FullReplyTo &fields = {});
 	void editMessage(
 		not_null<HistoryItem*> item,
 		const TextSelection &selection);

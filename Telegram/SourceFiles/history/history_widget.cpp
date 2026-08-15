@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "core/file_utilities.h"
 #include "core/mime_type.h"
+#include "history/history_item_helpers.h"
 #include "history/view/history_view_draw_to_reply.h"
 #include "history/view/controls/history_view_rich_draft_preview.h"
 #include "ui/emoji_config.h"
@@ -9902,6 +9903,10 @@ void HistoryWidget::clearFieldText(
 
 void HistoryWidget::replyToMessage(FullReplyTo id) {
 	if (const auto item = session().data().message(id.messageId)) {
+		if (item->isMelowgramDeleted()) {
+			replyToDeletedMessage(item, id);
+			return;
+		}
 		if (CanSendReply(item) && !base::IsCtrlPressed()) {
 			replyToMessage(item, id);
 		} else if (item->allowsForward()) {
@@ -9920,10 +9925,32 @@ void HistoryWidget::replyToMessage(
 	if (isJoinChannel()) {
 		return;
 	}
+	if (item->isMelowgramDeleted()) {
+		replyToDeletedMessage(item, fields);
+		return;
+	}
 	fields.messageId = item->fullId();
 	_processingReplyTo = fields;
 	_processingReplyItem = item;
 	processReply();
+}
+
+void HistoryWidget::replyToDeletedMessage(
+		not_null<HistoryItem*> item,
+		const FullReplyTo &fields) {
+	cancelReply();
+	const auto existing = _field->getTextWithTags();
+	auto quote = FormatDeletedMessageQuote(item, fields);
+	if (!existing.text.isEmpty()) {
+		const auto shift = int(quote.text.size());
+		for (auto tag : existing.tags) {
+			tag.offset += shift;
+			quote.tags.push_back(tag);
+		}
+		quote.text += existing.text;
+	}
+	setFieldText(quote);
+	_field->setFocus();
 }
 
 void HistoryWidget::processReply() {

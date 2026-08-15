@@ -1001,7 +1001,7 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
 	bool isOnline = Core::App().hasActiveWindow(&session());
 	int updateIn = config.onlineUpdatePeriod;
 	Assert(updateIn >= 0);
-	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
 		isOnline = false;
 	}
 	if (isOnline) {

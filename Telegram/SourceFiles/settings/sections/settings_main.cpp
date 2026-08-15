@@ -365,6 +365,15 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	const auto controller = builder.controller();
 	const auto showOther = builder.showOther();
 
+	builder.addSectionButton({
+		.title = tr::lng_settings_section_melowgram(),
+		.targetSection = MelowGramId(),
+		.icon = { &st::menuIconSettings },
+		.keywords = { u"melowgram"_q },
+	});
+	builder.addSkip();
+	builder.addDivider();
+
 	if (!session->supportMode()) {
 		builder.addSectionButton({
 			.title = tr::lng_settings_my_account(),
@@ -470,16 +479,6 @@ void BuildSectionButtons(SectionBuilder &builder) {
 		},
 		.keywords = { u"translate"_q, u"localization"_q, u"language"_q },
 	});
-
-	builder.addSkip();
-	builder.addDivider();
-	builder.addSectionButton({
-		.title = tr::lng_settings_section_melowgram(),
-		.targetSection = MelowGramId(),
-		.icon = { &st::menuIconSettings },
-		.keywords = { u"melowgram"_q },
-	});
-	builder.addSkip();
 }
 
 void BuildInterfaceScale(SectionBuilder &builder) {

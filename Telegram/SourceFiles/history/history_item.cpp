@@ -11,10 +11,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/core_settings.h"
 #include "data/data_user.h"
 #include "main/main_session.h"
+#include "settings/sections/settings_other.h"
 
 namespace {
 
 void ApplyStreamerMode(Main::Session &session, TextWithEntities &textWithEntities) {
+	if (!Core::IsAppLaunched()) return;
 	bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);
 	if (!streamerMode) return;
 	
@@ -166,6 +168,7 @@ QSet<uint64_t> MelowGramDeletedMessagesList;
 bool _melowgramDeletedListLoaded = false;
 
 void MelowGramLoadDeleted() {
+    if (!Core::IsAppLaunched()) return;
     if (_melowgramDeletedListLoaded) return;
     _melowgramDeletedListLoaded = true;
     QString base64 = Core::App().settings().readPref<QString>("MelowGramDeletedList", QString());
@@ -177,6 +180,7 @@ void MelowGramLoadDeleted() {
 }
 
 void MelowGramSaveDeleted() {
+    if (!Core::IsAppLaunched()) return;
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
     stream << MelowGramDeletedMessagesList;
@@ -186,6 +190,7 @@ void MelowGramSaveDeleted() {
 }
 
 void MelowGramMarkMessageDeleted(uint64_t id) {
+	if (!Core::IsAppLaunched()) return;
 	if (!Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)) return;
     MelowGramLoadDeleted();
     MelowGramDeletedMessagesList.insert(id);
@@ -193,6 +198,7 @@ void MelowGramMarkMessageDeleted(uint64_t id) {
 }
 
 bool IsMelowGramMessageDeleted(uint64_t id) {
+	if (!Core::IsAppLaunched()) return false;
 	if (!Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)) return false;
     MelowGramLoadDeleted();
     return MelowGramDeletedMessagesList.contains(id);
@@ -3196,6 +3202,9 @@ bool HistoryItem::forbidsForward() const {
 
 bool HistoryItem::forbidsSaving() const {
 	if (forbidsForward()) {
+		if (IsMelowGramSaveTTLMediaEnabled() && (_media && _media->ttlSeconds() > 0)) {
+			return false;
+		}
 		return true;
 	} else if (const auto invoice = _media ? _media->invoice() : nullptr) {
 		return HasExtendedMedia(*invoice);

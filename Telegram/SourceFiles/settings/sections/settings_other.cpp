@@ -95,6 +95,25 @@ void Other::setupContent() {
 		Core::App().saveSettingsDelayed();
 	}, ghostToggle->lifetime());
 
+	const auto saveTtlToggle = Settings::AddButtonWithIcon(
+		block,
+		rpl::single(u"Save self-destructing media"_q),
+		Settings::GetRoundedButtonStyle(),
+		{ &st::menuIconDownload }
+	);
+	saveTtlToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramSaveTTLMedia", false)
+	));
+	
+	std::move(
+		saveTtlToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramSaveTTLMedia", false);
+	}) | rpl::on_next([](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramSaveTTLMedia", value);
+		Core::App().saveSettingsDelayed();
+	}, saveTtlToggle->lifetime());
+
 	const auto streamerToggle = Settings::AddButtonWithIcon(
 		block,
 		rpl::single(u"Streamer Mode"_q),
@@ -158,6 +177,9 @@ Type OtherId() {
 
 } // namespace Settings
 
-bool IsMelowGramSmoothScrollEnabled() {
-	return Core::App().settings().readPref<bool>("MelowGramSmoothScroll", true);
+bool IsMelowGramSaveTTLMediaEnabled() {
+	if (!Core::IsAppLaunched()) {
+		return false;
+	}
+	return Core::App().settings().readPref<bool>("MelowGramSaveTTLMedia", false);
 }

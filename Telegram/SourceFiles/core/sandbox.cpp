@@ -67,14 +67,7 @@ Sandbox::Sandbox(int &argc, char **argv)
 #endif // Q_OS_MAC
 }
 
-static void StartupTrace(const char *msg) {
-	FILE *f = fopen("C:\\Users\\1337\\AppData\\Local\\Temp\\melow_trace.txt", "a");
-	if (f) {
-		fprintf(f, "%s\n", msg);
-		fflush(f);
-		fclose(f);
-	}
-}
+#include "core/startup_trace.h"
 
 int Sandbox::start() {
 	StartupTrace("Sandbox::start entered");

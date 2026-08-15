@@ -690,7 +690,7 @@ void Histories::sendReadRequests() {
 		return;
 	}
 	
-	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
 		return;
 	}
 	const auto now = crl::now();

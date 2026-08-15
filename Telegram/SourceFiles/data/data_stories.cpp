@@ -1407,7 +1407,7 @@ void Stories::sendMarkAsReadRequest(
 	};
 
 	const auto api = &_owner->session().api();
-	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
 		_markReadRequests.remove(peerId);
 		checkQuitPreventFinished();
 		return;
@@ -1423,7 +1423,9 @@ void Stories::checkQuitPreventFinished() {
 		if (Core::Quitting()) {
 			LOG(("Stories doesn't prevent quit any more."));
 		}
-		Core::App().quitPreventFinished();
+		if (Core::IsAppLaunched()) {
+			Core::App().quitPreventFinished();
+		}
 	}
 }
 
@@ -1444,7 +1446,7 @@ void Stories::sendMarkAsReadRequests() {
 }
 
 void Stories::sendIncrementViewsRequests() {
-	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
 		_incrementViewsPending.clear();
 		return;
 	}

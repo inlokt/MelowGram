@@ -51,7 +51,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_utilities.h"
 #include "ui/toast/toast.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/item_text_options.h"
+#include "data/data_msg_id.h"
 #include "lang/lang_keys.h"
 
 #include "styles/style_layers.h"
@@ -1463,4 +1465,54 @@ int ItemsForwardCaptionsCount(const HistoryItemsList &list) {
 		}
 	}
 	return result;
+}
+
+TextWithTags FormatDeletedMessageQuote(
+		not_null<HistoryItem*> item,
+		const FullReplyTo &fields) {
+	auto quoteText = fields.quote;
+	if (quoteText.empty()) {
+		quoteText = item->originalText();
+	}
+	if (quoteText.text.isEmpty()) {
+		quoteText = item->inReplyText();
+	}
+	if (quoteText.text.isEmpty()) {
+		quoteText = item->notificationText();
+	}
+	const auto from = item->from();
+	const auto fromName = from ? from->name() : QString();
+	auto fullQuote = TextWithEntities();
+	if (!fromName.isEmpty()) {
+		const auto prefix = fromName + u":\n"_q;
+		const auto shift = int(prefix.size());
+		fullQuote.text = prefix + quoteText.text;
+		fullQuote.entities.push_back(EntityInText(
+			EntityType::Bold,
+			0,
+			shift - 1));
+		for (const auto &entity : quoteText.entities) {
+			fullQuote.entities.push_back(EntityInText(
+				entity.type(),
+				entity.offset() + shift,
+				entity.length(),
+				entity.data()));
+		}
+	} else {
+		fullQuote = quoteText;
+	}
+
+	const auto quoteLength = int(fullQuote.text.size());
+	if (quoteLength > 0) {
+		fullQuote.entities.push_front(EntityInText(
+			EntityType::Blockquote,
+			0,
+			quoteLength));
+	}
+
+	auto tags = TextUtilities::ConvertEntitiesToTextTags(fullQuote.entities);
+	return TextWithTags{
+		fullQuote.text + u"\n"_q,
+		std::move(tags)
+	};
 }

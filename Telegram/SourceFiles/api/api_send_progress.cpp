@@ -154,7 +154,7 @@ void SendProgressManager::send(const Key &key, int progress) {
 }
 
 bool SendProgressManager::skipRequest(const Key &key) const {
-	if (Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
 		return true;
 	}
 	const auto user = key.history->peer->asUser();

@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/crash_reports.h"
 #include "core/sandbox.h"
 #include "core/shortcuts.h"
+#include "settings/sections/settings_other.h"
 #include "ui/widgets/menu/menu_add_action_callback.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "ui/widgets/dropdown_menu.h"
@@ -1309,6 +1310,12 @@ bool OverlayWidget::hasCopyMediaRestriction(bool skipPremiumCheck) const {
 		return skipPremiumCheck
 			? !story->canDownloadIfPremium()
 			: !story->canDownloadChecked();
+	}
+	if (IsMelowGramSaveTTLMediaEnabled()
+		&& _message
+		&& _message->media()
+		&& (_message->media()->ttlSeconds() > 0)) {
+		return false;
 	}
 	return (_history && !_history->peer->allowsForwarding())
 		|| (_message && _message->forbidsSaving());

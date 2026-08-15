@@ -569,6 +569,7 @@ void MainWindow::init() {
 }
 
 void MainWindow::updateWindowTransparency() {
+	if (!Core::IsAppLaunched()) return;
 	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
 	if (blur) {
 		window()->setAttribute(Qt::WA_NoSystemBackground, false);
@@ -1239,6 +1240,7 @@ QRect CountInitialGeometry(
 }
 
 void MainWindow::setupMelowGramGif() {
+	if (!Core::IsAppLaunched()) return;
 	if (Core::App().settings().readPref<bool>("MelowGramGifBackground", false)) {
 		const auto path = Core::App().settings().readPref<QString>("MelowGramGifPath", QString());
 		if (!path.isEmpty()) {
@@ -1316,6 +1318,7 @@ void MainWindow::reloadMelowGramGif() {
 }
 
 void MainWindow::setupMelowGramParticles() {
+	if (!body()) return;
 	_melowgramParticlesOverlay.create(body());
 	_melowgramParticlesOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_melowgramParticlesOverlay->show();
@@ -1326,6 +1329,7 @@ void MainWindow::setupMelowGramParticles() {
 	}
 
 	_melowgramParticlesOverlay->paintRequest() | rpl::on_next([=](QRect clip) {
+		if (!Core::IsAppLaunched()) return;
 		Painter p(_melowgramParticlesOverlay.data());
 		p.setRenderHint(QPainter::Antialiasing);
 
@@ -1431,6 +1435,9 @@ void MainWindow::setupMelowGramParticles() {
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *e) {
+	if (!Core::IsAppLaunched() || !body()) {
+		return Ui::RpWindow::eventFilter(obj, e);
+	}
 	if (e->type() == QEvent::MouseMove || e->type() == QEvent::MouseButtonPress) {
 		bool onMove = Core::App().settings().readPref<bool>("MelowGramParticlesMove", false);
 		bool onClick = Core::App().settings().readPref<bool>("MelowGramParticlesClick", false);
@@ -1440,7 +1447,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *e) {
 			QMouseEvent *me = static_cast<QMouseEvent*>(e);
 			
 			// Only spawn if within our window
-			if (window() && window()->windowHandle()) {
+			if (window() && window()->windowHandle() && body()) {
 				QPoint globalPos = me->globalPos();
 				if (window()->geometry().contains(globalPos)) {
 					QPoint localPos = body()->mapFromGlobal(globalPos);

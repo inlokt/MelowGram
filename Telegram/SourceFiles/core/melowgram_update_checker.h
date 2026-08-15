@@ -5,17 +5,10 @@ the official desktop application for the Telegram messaging service.
 For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
-/*
- * modified for melowgram 23.07.2026
- */
 #pragma once
 
-#include "settings/settings_common.h"
+namespace Core {
 
-namespace Settings {
+void CheckMelowGramUpdate();
 
-[[nodiscard]] Type OtherId();
-
-} // namespace Settings
-
-[[nodiscard]] bool IsMelowGramSaveTTLMediaEnabled();
+} // namespace Core

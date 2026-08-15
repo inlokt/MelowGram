@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "base/timer.h"
 #include "base/unixtime.h"
 #include "core/core_settings.h"
+#include "core/melowgram_update_checker.h"
 #include "core/update_checker.h"
 #include "core/shortcuts.h"
 #include "core/sandbox.h"
@@ -263,12 +264,17 @@ Application::~Application() {
 	Instance = nullptr;
 }
 
+#include "core/startup_trace.h"
+
 void Application::run() {
+	StartupTrace("Application::run starting");
 	// Depends on OpenSSL on macOS, so on ThirdParty::start().
 	// Depends on notifications settings.
 	_notifications = std::make_unique<Window::Notifications::System>();
 
+	StartupTrace("Application::run: startLocalStorage calling");
 	startLocalStorage();
+	StartupTrace("Application::run: startLocalStorage done");
 
 	style::SetCustomFont(settings().customFontFamily());
 	style::internal::StartFonts();
@@ -384,15 +390,20 @@ void Application::run() {
 
 	DEBUG_LOG(("Application Info: window created..."));
 
+	StartupTrace("Application::run: startDomain calling");
 	startDomain();
+	StartupTrace("Application::run: startTray calling");
 	startTray();
 
+	StartupTrace("Application::run: firstShow calling");
 	_lastActivePrimaryWindow->firstShow();
+	StartupTrace("Application::run: firstShow done");
 
 	startMediaView();
 
-	DEBUG_LOG(("Application Info: showing."));
+	StartupTrace("Application::run: finishFirstShow calling");
 	_lastActivePrimaryWindow->finishFirstShow();
+	StartupTrace("Application::run: finishFirstShow done");
 
 	if (!_lastActivePrimaryWindow->locked() && cStartToSettings()) {
 		_lastActivePrimaryWindow->showSettings();
@@ -424,6 +435,7 @@ void Application::run() {
 	}
 
 	processCreatedWindow(_lastActivePrimaryWindow);
+	Core::CheckMelowGramUpdate();
 }
 
 void Application::autoRegisterUrlScheme() {
@@ -1957,9 +1969,12 @@ Application &App() {
 }
 
 void Quit(QuitReason reason) {
+   StartupTrace("Core::Quit() CALLED!");
    if (Quitting()) {
+	   StartupTrace("Core::Quit(): already Quitting()");
 	   return;
    } else if (IsAppLaunched() && App().preventsQuit(reason)) {
+	   StartupTrace("Core::Quit(): App().preventsQuit()");
 	   return;
    }
    SetLaunchState(LaunchState::QuitRequested);

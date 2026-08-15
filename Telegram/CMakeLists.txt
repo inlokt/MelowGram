@@ -579,6 +579,8 @@ PRIVATE
     core/shortcuts.h
     core/ui_integration.cpp
     core/ui_integration.h
+    core/melowgram_update_checker.cpp
+    core/melowgram_update_checker.h
     core/update_checker.cpp
     core/update_checker.h
     core/utils.cpp

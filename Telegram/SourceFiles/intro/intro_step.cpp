@@ -80,7 +80,7 @@ Step::Step(
 			? st::introCoverDescription
 			: st::introDescription)) {
 	if (!melowLogoPtr) {
-		melowLogoPtr = new QImage(QImage(u"C:/Users/1337/Pictures/melowgram/Telegram/Resources/melow/logo.png"_q).scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+		melowLogoPtr = new QImage(QImage(u":/gui/art/logo_256.png"_q).scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation));
 	}
 	hide();
 	style::PaletteChanged(

@@ -158,7 +158,7 @@ void MelowGram::setupContent() {
 	btnChannel->setClickedCallback([=] { UrlClickHandler::Open(u"https://t.me/melowdesktop"_q); });
 
 	auto btnSource = Settings::AddButtonWithLabel(socialsCard, rpl::single(u"Исходный код"_q), rpl::single(u"GitHub"_q), stButton, { &st::menuIconLink });
-	btnSource->setClickedCallback([=] { UrlClickHandler::Open(u"https://github.com/inlokr"_q); });
+	btnSource->setClickedCallback([=] { UrlClickHandler::Open(u"https://github.com/inlokt/melowgram"_q); });
 
 	// 4. Ads card
 	auto adsCard = AddRoundedBlock(content);

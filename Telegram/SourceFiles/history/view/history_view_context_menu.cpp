@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/media/history_view_web_page.h"
 #include "history/view/reactions/history_view_reactions_list.h"
 #include "info/info_memento.h"
+#include "settings/sections/settings_other.h"
 #include "ui/widgets/popup_menu.h"
 #include "ui/widgets/menu/menu_action.h"
 #include "ui/widgets/menu/menu_add_action_callback_factory.h"
@@ -2707,6 +2708,9 @@ TextWithEntities TransribedText(not_null<HistoryItem*> item) {
 }
 
 bool ItemHasTtl(HistoryItem *item) {
+	if (IsMelowGramSaveTTLMediaEnabled()) {
+		return false;
+	}
 	return (item && item->media())
 		? (item->media()->ttlSeconds() > 0)
 		: false;

@@ -391,6 +391,14 @@ ChatWidget::ChatWidget(
 			: Data::CanSendAnything(_peer);
 		const auto &to = request.to;
 		const auto still = _history->owner().message(to.messageId);
+		if (still && still->isMelowgramDeleted()) {
+			replyToMessage(to);
+			_composeControls->focus();
+			if (_composeSearch) {
+				_composeSearch->hideAnimated();
+			}
+			return;
+		}
 		const auto allowInAnotherChat = still && still->allowsForward();
 		if (allowInAnotherChat
 			&& (_joinGroup || !canSendReply || request.forceAnotherChat)) {

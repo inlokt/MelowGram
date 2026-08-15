@@ -253,6 +253,9 @@ public:
 	void maybeCancelEditMessage(); // Confirm if changed and cancel.
 
 	void replyToMessage(FullReplyTo id);
+	void replyToDeletedMessage(
+		not_null<HistoryItem*> item,
+		const FullReplyTo &fields);
 	void cancelReplyMessage();
 
 	void updateForwarding();

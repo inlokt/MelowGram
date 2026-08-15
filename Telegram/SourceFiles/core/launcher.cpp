@@ -376,14 +376,7 @@ void Launcher::initHighDpi() {
 	}
 }
 
-static void StartupTrace(const char *msg) {
-	FILE *f = fopen("C:\\Users\\1337\\AppData\\Local\\Temp\\melow_trace.txt", "a");
-	if (f) {
-		fprintf(f, "%s\n", msg);
-		fflush(f);
-		fclose(f);
-	}
-}
+#include "core/startup_trace.h"
 
 int Launcher::exec() {
 	StartupTrace("Launcher::exec: starting");

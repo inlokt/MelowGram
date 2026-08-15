@@ -395,7 +395,9 @@ void SectionWidget::PaintBackground(
 		QRect clip,
 		bool paused) {
 	
-	const auto blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+	const auto blackout = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+		: 100;
 	const auto blackoutOpacity = blackout < 100 ? (blackout / 100.0) : 1.0;
 
 	if (blackout < 100) {

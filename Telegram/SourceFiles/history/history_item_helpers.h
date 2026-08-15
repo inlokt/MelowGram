@@ -283,3 +283,8 @@ void ShowTrialTranscribesToast(int left, TimeId until);
 
 [[nodiscard]] int ItemsForwardSendersCount(const HistoryItemsList &list);
 [[nodiscard]] int ItemsForwardCaptionsCount(const HistoryItemsList &list);
+
+[[nodiscard]] TextWithTags FormatDeletedMessageQuote(
+	not_null<HistoryItem*> item,
+	const FullReplyTo &fields);
+

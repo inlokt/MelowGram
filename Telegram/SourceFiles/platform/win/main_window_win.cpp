@@ -605,6 +605,7 @@ void MainWindow::updateWindowTransparency() {
 
 	HWND hwnd = psHwnd();
 	if (!hwnd) return;
+	if (!Core::IsAppLaunched()) return;
 
 	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
 	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);

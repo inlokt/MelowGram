@@ -68,6 +68,22 @@ settings.local.json
 
 # AI work folder (session-specific, not for version control)
 .ai
+.agents/
 
 # Generated changelog page (built by CI, deployed to GitHub Pages)
 /docs/changelog/
+
+# Ignored documentation / personal / local files
+README.md
+README.MD
+readme.md
+tdata/
+**/tdata/
+*.log
+*.txt
+*.bat
+*.ps1
+convert_tool/
+version.json
+Updater.exe
+

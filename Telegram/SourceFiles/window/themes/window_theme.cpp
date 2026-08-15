@@ -1710,6 +1710,9 @@ std::unique_ptr<Ui::ChatTheme> DefaultChatThemeOn(rpl::lifetime &lifetime) {
 }
 
 void ApplyMelowGramModifiers() {
+	if (!Core::IsAppLaunched()) {
+		return;
+	}
 	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
 	int alpha = (blackout * 255) / 100;
 
