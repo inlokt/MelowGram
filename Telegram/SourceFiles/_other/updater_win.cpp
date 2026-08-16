@@ -191,7 +191,7 @@ bool update() {
 
 		do {
 			wstring fname = dir + L"\\" + findData.cFileName;
-			if (fname.substr(0, tdataDir.size()) == tdataDir && (fname.size() <= tdataDir.size() || fname.at(tdataDir.size()) == '/')) {
+			if (fname.substr(0, tdataDir.size()) == tdataDir && (fname.size() <= tdataDir.size() || fname.at(tdataDir.size()) == '\\')) {
 				writeLog(L"Skipped 'tdata' path '" + fname + L"'");
 			} else if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
 				if (findData.cFileName != wstring(L".") && findData.cFileName != wstring(L"..")) {
@@ -482,7 +482,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE prevInstance, LPWSTR cmdPara
 		}
 	}
 	if (!executed) {
-		ShellExecute(0, 0, (updateTo + exeName).c_str(), (L"-noupdate" + targs).c_str(), 0, SW_SHOWNORMAL);
+		ShellExecute(0, 0, (updateTo + exeName).c_str(), (L"-noupdate" + targs).c_str(), updateTo.c_str(), SW_SHOWNORMAL);
 	}
 
 	writeLog(L"Executed '" + exeName + L"', closing log and quitting..");

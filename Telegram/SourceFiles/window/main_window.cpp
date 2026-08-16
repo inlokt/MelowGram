@@ -569,9 +569,12 @@ void MainWindow::init() {
 void MainWindow::updateWindowTransparency() {
 	if (!Core::IsAppLaunched()) return;
 	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
-	if (blur) {
+	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+	if (blur && blackout < 100) {
 		window()->setAttribute(Qt::WA_NoSystemBackground, false);
 		window()->setAttribute(Qt::WA_TranslucentBackground, true);
+	} else {
+		window()->setAttribute(Qt::WA_TranslucentBackground, false);
 	}
 	Window::Theme::ApplyMelowGramModifiers();
 	
