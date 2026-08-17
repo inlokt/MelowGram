@@ -58,5 +58,5 @@ The source code is published under GPLv3 with OpenSSL exception, the license is 
 [win]: docs/building-win.md
 [mac]: docs/building-mac.md
 [linux]: docs/building-linux.md
-[preview_image]: https://github.com/telegramdesktop/tdesktop/blob/dev/docs/assets/preview.png "Preview of Telegram Desktop"
+[preview_image]: https://github.com/inlokt/melowgram/blob/dev/docs/assets/preview.png "Preview of MelowDesktop"
 [preview_image_url]: https://raw.githubusercontent.com/telegramdesktop/tdesktop/dev/docs/assets/preview.png
