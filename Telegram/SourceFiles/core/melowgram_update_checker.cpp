@@ -19,6 +19,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <shellapi.h>
+#endif
 
 #include "settings.h"
 
@@ -38,28 +42,21 @@ namespace {
 	auto result = std::vector<int>();
 	result.reserve(parts.size());
 	for (const auto &part : parts) {
-		auto ok = false;
-		const auto val = part.toInt(&ok);
-		result.push_back(ok ? val : 0);
+		result.push_back(part.toInt());
 	}
 	return result;
 }
 
-[[nodiscard]] bool IsVersionGreater(
-		const QString &remote,
-		const QString &local) {
-	if (remote.isEmpty() || local.isEmpty()) {
-		return false;
-	}
-	const auto remoteParts = ParseVersionNumbers(remote);
-	const auto localParts = ParseVersionNumbers(local);
-	const auto count = std::max(remoteParts.size(), localParts.size());
-	for (auto i = std::size_t(0); i < count; ++i) {
-		const auto r = (i < remoteParts.size()) ? remoteParts[i] : 0;
-		const auto l = (i < localParts.size()) ? localParts[i] : 0;
-		if (r > l) {
+[[nodiscard]] bool IsVersionGreater(const QString &candidate, const QString &current) {
+	const auto candidateParts = ParseVersionNumbers(candidate);
+	const auto currentParts = ParseVersionNumbers(current);
+	const auto maxParts = std::max(candidateParts.size(), currentParts.size());
+	for (size_t i = 0; i < maxParts; ++i) {
+		const auto c = (i < candidateParts.size()) ? candidateParts[i] : 0;
+		const auto cur = (i < currentParts.size()) ? currentParts[i] : 0;
+		if (c > cur) {
 			return true;
-		} else if (r < l) {
+		} else if (c < cur) {
 			return false;
 		}
 	}
@@ -69,11 +66,11 @@ namespace {
 [[nodiscard]] QString ReadLocalVersionTag() {
 	const auto tryPath = [](const QString &dir) -> QString {
 		const auto path = dir + u"version.json"_q;
-		auto f = QFile(path);
-		if (!f.open(QIODevice::ReadOnly)) {
+		auto file = QFile(path);
+		if (!file.open(QIODevice::ReadOnly)) {
 			return QString();
 		}
-		const auto doc = QJsonDocument::fromJson(f.readAll());
+		const auto doc = QJsonDocument::fromJson(file.readAll());
 		if (!doc.isObject()) {
 			return QString();
 		}
@@ -90,7 +87,19 @@ void LaunchUpdater() {
 	const auto tryPath = [](const QString &dir) -> bool {
 		const auto path = dir + u"Updater.exe"_q;
 		if (QFile::exists(path)) {
+#ifdef Q_OS_WIN
+			const auto nativePath = QDir::toNativeSeparators(path).toStdWString();
+			const auto nativeDir = QDir::toNativeSeparators(dir).toStdWString();
+			ShellExecuteW(
+				nullptr,
+				L"open",
+				nativePath.c_str(),
+				nullptr,
+				nativeDir.c_str(),
+				SW_SHOWNORMAL);
+#else
 			QProcess::startDetached(path, QStringList());
+#endif
 			return true;
 		}
 		return false;

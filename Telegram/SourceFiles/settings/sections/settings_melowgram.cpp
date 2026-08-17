@@ -131,7 +131,7 @@ void MelowGram::setupContent() {
 		
 		p.setFont(st::normalFont);
 		p.setPen(st::windowSubTextFg);
-		p.drawText(QRectF(0, 130, avatarWrap->width(), 20), "1.2.0 Release", QTextOption(Qt::AlignCenter));
+		p.drawText(QRectF(0, 130, avatarWrap->width(), 20), "1.2.2 Release", QTextOption(Qt::AlignCenter));
 	}, avatarWrap->lifetime());
 	
 	avatarWrap->widthValue() | rpl::on_next([avatarWrap](int w) {
