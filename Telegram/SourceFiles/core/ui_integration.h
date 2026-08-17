@@ -54,6 +54,8 @@ public:
 	int touchCounterNow() override;
 
 	bool screenIsLocked() override;
+	bool customSwitcher() override;
+	int customAvatarRounding() override;
 
 	std::shared_ptr<ClickHandler> createLinkHandler(
 		const EntityLinkData &data,

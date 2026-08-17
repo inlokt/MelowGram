@@ -10,6 +10,7 @@
 #include "ui/wrap/vertical_layout.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/widgets/continuous_sliders.h"
+#include "ui/widgets/checkbox.h"
 #include "ui/widgets/labels.h"
 #include "ui/widgets/buttons.h"
 #include "ui/boxes/confirm_box.h"
@@ -138,6 +139,87 @@ void MelowGramTheme::setupContent(not_null<Window::SessionController*> controlle
 	sliderLabel->setText(QString::number(initialValue) + "%");
 
 	block3->add(std::move(slider.widget), QMargins(22, 5, 22, 10));
+
+	auto effectsBlock = Settings::AddRoundedBlock(content);
+
+	const auto effectsToggle = Settings::AddButtonWithIcon(
+		effectsBlock,
+		rpl::single(u"Effects"_q),
+		Settings::GetRoundedButtonStyle(),
+		{ &st::menuIconPremium }
+	);
+	effectsToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramEffects", false)
+	));
+
+	auto effectsWrap = effectsBlock->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			effectsBlock,
+			object_ptr<Ui::VerticalLayout>(effectsBlock)
+		)
+	);
+
+	auto effectsInner = effectsWrap->entity();
+
+	const auto effectsTypeGroup = std::make_shared<Ui::RadiobuttonGroup>(
+		Core::App().settings().readPref<int>("MelowGramEffectsType", 0)
+	);
+
+	auto addEffectRadio = [&](int value, const QString &text) {
+		auto radio = Ui::CreateChild<Ui::Radiobutton>(
+			effectsInner,
+			effectsTypeGroup,
+			value,
+			text,
+			st::settingsCheckbox
+		);
+		effectsInner->add(object_ptr<Ui::Radiobutton>::fromRaw(radio), style::margins(22, 5, 22, 5));
+	};
+	addEffectRadio(0, "Snow");
+	addEffectRadio(1, "Rain");
+
+	effectsTypeGroup->setChangedCallback([=](int value) {
+		Core::App().settings().writePref<int>("MelowGramEffectsType", value);
+		Core::App().saveSettingsDelayed();
+		controller->window().widget()->update();
+	});
+
+	auto speedTitle = Ui::CreateChild<Ui::FlatLabel>(effectsInner, u"Speed"_q, st::defaultFlatLabel);
+	effectsInner->add(object_ptr<Ui::FlatLabel>::fromRaw(speedTitle), QMargins(22, 10, 22, 0));
+
+	int initialSpeed = Core::App().settings().readPref<int>("MelowGramEffectsSpeed", 50);
+
+	auto speedSlider = Settings::MakeSliderWithLabel(
+		effectsInner,
+		st::settingsScale,
+		st::settingsScaleLabel,
+		15
+	);
+
+	auto speedSliderLabel = speedSlider.label;
+	auto speedSliderWidget = speedSlider.slider;
+
+	speedSliderWidget->setChangeProgressCallback([=](float64 value) {
+		const int val = std::clamp(int(std::round(value * 100)), 1, 100);
+		Core::App().settings().writePref<int>("MelowGramEffectsSpeed", val);
+		speedSliderLabel->setText(QString::number(val) + "%");
+	});
+	speedSliderWidget->setValue(initialSpeed / 100.0);
+	speedSliderLabel->setText(QString::number(initialSpeed) + "%");
+
+	effectsInner->add(std::move(speedSlider.widget), QMargins(22, 5, 22, 10));
+
+	effectsWrap->toggleOn(effectsToggle->toggledValue());
+
+	std::move(
+		effectsToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramEffects", false);
+	}) | rpl::on_next([=](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramEffects", value);
+		Core::App().saveSettingsDelayed();
+		controller->window().widget()->update();
+	}, effectsToggle->lifetime());
 
 	Ui::ResizeFitChild(this, content);
 }

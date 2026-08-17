@@ -343,7 +343,9 @@ void Application::run() {
 	[[maybe_unused]] const auto &webviewAvailability
 		= Core::CachedWebviewAvailability();
 
+	LOG(("Application Info: pre windows emplace"));
 	_windows.emplace(nullptr, std::make_unique<Window::Controller>());
+	LOG(("Application Info: post windows emplace"));
 	setLastActiveWindow(_windows.front().second.get());
 	_windowInSettings = _lastActivePrimaryWindow = _lastActiveWindow;
 
@@ -388,16 +390,18 @@ void Application::run() {
 		}
 	}, _lifetime);
 
-	DEBUG_LOG(("Application Info: window created..."));
+	LOG(("Application Info: window created..."));
 
 	StartupTrace("Application::run: startDomain calling");
 	startDomain();
 	StartupTrace("Application::run: startTray calling");
 	startTray();
 
+	LOG(("Application Info: calling firstShow"));
 	StartupTrace("Application::run: firstShow calling");
 	_lastActivePrimaryWindow->firstShow();
 	StartupTrace("Application::run: firstShow done");
+	LOG(("Application Info: firstShow done"));
 
 	startMediaView();
 

@@ -105,7 +105,7 @@ MainWindow::MainWindow(not_null<Window::Controller*> controller)
 		Ui::ForceFullRepaint(this);
 	}, lifetime());
 
-	setAttribute(Qt::WA_OpaquePaintEvent, false);
+	setAttribute(Qt::WA_OpaquePaintEvent);
 }
 
 void MainWindow::initHook() {
@@ -149,7 +149,7 @@ void MainWindow::finishFirstShow() {
 		Ui::Tooltip::Hide();
 	}, lifetime());
 
-	setAttribute(Qt::WA_NoSystemBackground, false);
+	setAttribute(Qt::WA_NoSystemBackground);
 
 	if (!_passcodeLock && !_setupEmailLock && _main) {
 		_main->activate();

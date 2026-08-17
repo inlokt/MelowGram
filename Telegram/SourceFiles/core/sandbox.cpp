@@ -340,6 +340,7 @@ Sandbox::~Sandbox() {
 
 bool Sandbox::event(QEvent *e) {
 	if (e->type() == QEvent::Quit) {
+		StartupTrace("Sandbox::event received QEvent::Quit!");
 		if (Quitting()) {
 			return QCoreApplication::event(e);
 		}
@@ -348,6 +349,7 @@ bool Sandbox::event(QEvent *e) {
 		return false;
 	} else if (e->type() == QEvent::Close) {
 		Quit();
+		return true;
 	} else if (e->type() == DeadlockDetector::PingPongEvent::Type()) {
 		postEvent(
 			static_cast<DeadlockDetector::PingPongEvent*>(e)->sender(),

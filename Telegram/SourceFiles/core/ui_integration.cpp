@@ -314,6 +314,21 @@ bool UiIntegration::screenIsLocked() {
 	return Core::App().screenIsLocked();
 }
 
+bool UiIntegration::customSwitcher() {
+	return Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramCustomSwitcher", false);
+}
+
+int UiIntegration::customAvatarRounding() {
+	if (!Core::IsAppLaunched()) {
+		return 0;
+	}
+	if (!Core::App().settings().readPref<bool>("MelowGramCustomAvatarRounding", false)) {
+		return 0;
+	}
+	return std::clamp(Core::App().settings().readPref<int>("MelowGramAvatarRadius", 100), 10, 100);
+}
+
 std::shared_ptr<ClickHandler> UiIntegration::createLinkHandler(
 		const EntityLinkData &data,
 		const Ui::Text::MarkedContext &context) {

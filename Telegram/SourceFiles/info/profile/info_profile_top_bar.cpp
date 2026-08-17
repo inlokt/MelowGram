@@ -7,10 +7,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/application.h"
 #include "core/core_settings.h"
-#include "core/application.h"
-#include "core/core_settings.h"
-#include "core/application.h"
-#include "core/core_settings.h"
 #include "info/profile/info_profile_top_bar.h"
 
 #include "api/api_peer_colors.h"
@@ -528,6 +524,7 @@ TopBar::TopBar(
 	if (_forumButton) {
 		_forumButton->show();
 	}
+	setAttribute(Qt::WA_OpaquePaintEvent, false);
 }
 
 void TopBar::setupBirthdayEffect() {
@@ -1719,6 +1716,10 @@ void TopBar::setLocalEmojiStatusId(EmojiStatusId emojiStatusId) {
 }
 
 std::optional<Data::ColorProfileSet> TopBar::effectiveColorProfile() const {
+	if (Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false)) {
+		return std::nullopt;
+	}
 	return _localColorProfileIndex
 		? _peer->session().api().peerColors().colorProfileFor(
 			*_localColorProfileIndex)
@@ -1729,6 +1730,10 @@ std::optional<Data::ColorProfileSet> TopBar::effectiveColorProfile() const {
 
 auto TopBar::effectiveCollectible() const
 -> std::shared_ptr<Data::EmojiStatusCollectible> {
+	if (Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false)) {
+		return nullptr;
+	}
 	return _localCollectible
 		? _localCollectible
 		: _localColorProfileIndex
@@ -1753,7 +1758,16 @@ void TopBar::paintEdges(QPainter &p, const QBrush &brush) const {
 }
 
 void TopBar::paintEdges(QPainter &p) const {
-	if (!_solidBg) {
+	const auto blur = Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	const auto blackout = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+		: 100;
+	if (blur && blackout < 100) {
+		auto color = _solidBg.value_or(st::windowBg->c);
+		color.setAlpha((blackout * 255) / 100);
+		paintEdges(p, color);
+	} else if (!_solidBg) {
 		paintEdges(p, st::boxDividerBg);
 	} else {
 		paintEdges(p, *_solidBg);
@@ -2763,6 +2777,14 @@ void TopBar::paintEvent(QPaintEvent *e) {
 	if (!_hasGradientBg) {
 		paintEdges(p);
 	} else {
+		const auto blur = Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+		const auto blackout = Core::IsAppLaunched()
+			? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+			: 100;
+		if (blur && blackout < 100) {
+			p.setOpacity(blackout / 100.0);
+		}
 		const auto x = (width()
 			- _cachedGradient.width() / style::DevicePixelRatio())
 				/ 2;
@@ -2783,6 +2805,9 @@ void TopBar::paintEvent(QPaintEvent *e) {
 			p.drawImage(x, y, _cachedGradient);
 		} else {
 			p.drawImage(x, y, _cachedGradient);
+		}
+		if (blur && blackout < 100) {
+			p.setOpacity(1.0);
 		}
 	}
 	if (_patternEmoji && _patternEmoji->ready()) {
@@ -3818,10 +3843,19 @@ TopBarActionButtonStyle TopBar::mapActionStyle(
 			.shadowColor = std::nullopt,
 		};
 	} else {
+		const auto blur = Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+		const auto blackout = Core::IsAppLaunched()
+			? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+			: 100;
+		auto bg = anim::with_alpha(
+			st::boxBg->c,
+			1. - st::infoProfileTopBarActionButtonBgOpacity);
+		if (blur && blackout < 100) {
+			bg.setAlpha(std::min(bg.alpha(), (blackout * 255) / 100));
+		}
 		return TopBarActionButtonStyle{
-			.bgColor = anim::with_alpha(
-				st::boxBg->c,
-				1. - st::infoProfileTopBarActionButtonBgOpacity),
+			.bgColor = bg,
 			.fgColor = std::nullopt,
 			.shadowColor = Window::Theme::IsNightMode()
 				? std::nullopt

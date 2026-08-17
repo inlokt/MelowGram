@@ -248,6 +248,7 @@ private:
 	// MelowGram Particles
 	void setupMelowGramParticles();
 	object_ptr<Ui::RpWidget> _melowgramParticlesOverlay = { nullptr };
+	object_ptr<Ui::RpWidget> _melowgramBackgroundEffects = { nullptr };
 	struct MelowParticle {
 		QPointF pos;
 		QPointF velocity;
@@ -262,6 +263,18 @@ private:
 		float life = 1.0f;
 	};
 	std::vector<MelowRipple> _melowRipples;
+
+	struct MelowWeatherParticle {
+		QPointF pos;
+		float speedX = 0.0f;
+		float speedY = 0.0f;
+		float size = 2.0f;
+		float length = 15.0f;
+		float alpha = 0.8f;
+		float phase = 0.0f;
+	};
+	std::vector<MelowWeatherParticle> _melowWeatherParticles;
+	int _melowWeatherType = -1;
 	
 	base::Timer _melowParticlesTimer;
 	bool _melowParticlesEventFilterInstalled = false;

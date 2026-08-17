@@ -174,8 +174,7 @@ bool EventFilter::nativeEventFilter(
 		native_event_filter_result *result) {
 	return Core::Sandbox::Instance().customEnterFromEventLoop([&] {
 		const auto msg = static_cast<MSG*>(message);
-		if (msg->hwnd == _window->psHwnd()
-			|| msg->hwnd && !_window->psHwnd()) {
+		if (msg && (msg->hwnd == _window->psHwnd() || (msg->hwnd && !_window->psHwnd()))) {
 			return mainWindowEvent(
 				msg->hwnd,
 				msg->message,

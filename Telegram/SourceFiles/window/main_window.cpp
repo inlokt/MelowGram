@@ -570,11 +570,10 @@ void MainWindow::updateWindowTransparency() {
 	if (!Core::IsAppLaunched()) return;
 	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
 	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
-	if (blur && blackout < 100) {
-		window()->setAttribute(Qt::WA_NoSystemBackground, false);
-		window()->setAttribute(Qt::WA_TranslucentBackground, true);
-	} else {
-		window()->setAttribute(Qt::WA_TranslucentBackground, false);
+	const auto translucent = blur && (blackout < 100);
+	if (window()->testAttribute(Qt::WA_TranslucentBackground) != translucent) {
+		window()->setAttribute(Qt::WA_NoSystemBackground, !translucent);
+		window()->setAttribute(Qt::WA_TranslucentBackground, translucent);
 	}
 	Window::Theme::ApplyMelowGramModifiers();
 	
@@ -1320,6 +1319,15 @@ void MainWindow::reloadMelowGramGif() {
 
 void MainWindow::setupMelowGramParticles() {
 	if (!body()) return;
+
+	_melowgramBackgroundEffects.create(body());
+	_melowgramBackgroundEffects->setAttribute(Qt::WA_TransparentForMouseEvents);
+	_melowgramBackgroundEffects->show();
+	_melowgramBackgroundEffects->lower();
+	if (_melowgramGifLabel) {
+		_melowgramGifLabel->lower();
+	}
+
 	_melowgramParticlesOverlay.create(body());
 	_melowgramParticlesOverlay->setAttribute(Qt::WA_TransparentForMouseEvents);
 	_melowgramParticlesOverlay->show();
@@ -1328,6 +1336,41 @@ void MainWindow::setupMelowGramParticles() {
 		_melowParticlesEventFilterInstalled = true;
 		QCoreApplication::instance()->installEventFilter(this);
 	}
+
+	_melowgramBackgroundEffects->paintRequest() | rpl::on_next([=](QRect clip) {
+		if (!Core::IsAppLaunched()) return;
+		const bool effectsEnabled = Core::App().settings().readPref<bool>("MelowGramEffects", false);
+		if (!effectsEnabled) return;
+
+		Painter p(_melowgramBackgroundEffects.data());
+		p.setRenderHint(QPainter::Antialiasing);
+
+		const int effectsType = Core::App().settings().readPref<int>("MelowGramEffectsType", 0);
+		if (effectsType == 0) { // Snow
+			for (const auto &flake : _melowWeatherParticles) {
+				p.setPen(Qt::NoPen);
+				QColor c(255, 255, 255);
+				c.setAlphaF(flake.alpha);
+				p.setBrush(c);
+				p.drawEllipse(flake.pos, flake.size, flake.size);
+				if (flake.size > 2.8f) {
+					c.setAlphaF(flake.alpha * 0.25f);
+					p.setBrush(c);
+					p.drawEllipse(flake.pos, flake.size * 1.6f, flake.size * 1.6f);
+				}
+			}
+		} else { // Rain
+			for (const auto &drop : _melowWeatherParticles) {
+				QColor c(185, 215, 245);
+				c.setAlphaF(drop.alpha);
+				QPen pen(c);
+				pen.setWidthF(drop.size);
+				pen.setCapStyle(Qt::RoundCap);
+				p.setPen(pen);
+				p.drawLine(drop.pos, drop.pos + QPointF(drop.speedX * (drop.length / drop.speedY), drop.length));
+			}
+		}
+	}, _melowgramBackgroundEffects->lifetime());
 
 	_melowgramParticlesOverlay->paintRequest() | rpl::on_next([=](QRect clip) {
 		if (!Core::IsAppLaunched()) return;
@@ -1405,39 +1448,137 @@ void MainWindow::setupMelowGramParticles() {
 	}, _melowgramParticlesOverlay->lifetime());
 
 	_melowParticlesTimer.setCallback([=] {
-		bool alive = false;
+		if (!window() || !window()->isVisible() || isMinimized() || isHidden()) {
+			return;
+		}
+
+		bool interactiveAlive = false;
 		for (auto &p : _melowParticles) {
 			if (p.life > 0.0f) {
 				p.pos += p.velocity;
 				p.life -= 0.02f; // Fade out speed
 				p.size += 0.1f; // Expand slightly
-				alive = true;
+				interactiveAlive = true;
 			}
 		}
 		for (auto &r : _melowRipples) {
 			if (r.life > 0.0f) {
 				r.life -= 0.025f; // Fade speed
-				alive = true;
+				interactiveAlive = true;
 			}
 		}
-		if (alive) {
+
+		bool weatherAlive = false;
+		const bool effectsEnabled = Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramEffects", false);
+		const int effectsType = Core::IsAppLaunched()
+			? Core::App().settings().readPref<int>("MelowGramEffectsType", 0)
+			: 0;
+		const float speedFactor = Core::IsAppLaunched()
+			? (std::max(1, Core::App().settings().readPref<int>("MelowGramEffectsSpeed", 50)) / 50.0f)
+			: 1.0f;
+
+		const auto bodyW = body() ? body()->width() : 0;
+		const auto bodyH = body() ? body()->height() : 0;
+
+		if (effectsEnabled && bodyW > 0 && bodyH > 0) {
+			const size_t targetCount = (effectsType == 0) ? 90 : 120;
+			if (_melowWeatherType != effectsType || _melowWeatherParticles.size() != targetCount) {
+				_melowWeatherType = effectsType;
+				_melowWeatherParticles.clear();
+				_melowWeatherParticles.reserve(targetCount);
+				for (size_t i = 0; i < targetCount; ++i) {
+					MelowWeatherParticle wp;
+					wp.pos = QPointF(
+						(std::rand() % (bodyW + 200)) - 100,
+						std::rand() % bodyH);
+					if (effectsType == 0) { // Snow
+						wp.speedY = 1.0f + (std::rand() % 20) / 10.0f;
+						wp.speedX = 0.4f + (std::rand() % 10) / 10.0f;
+						wp.size = 1.5f + (std::rand() % 25) / 10.0f;
+						wp.alpha = 0.35f + (std::rand() % 50) / 100.0f;
+						wp.phase = (std::rand() % 628) / 100.0f;
+					} else { // Rain
+						wp.speedY = 14.0f + (std::rand() % 100) / 10.0f;
+						wp.speedX = -2.5f - (std::rand() % 15) / 10.0f;
+						wp.length = 12.0f + (std::rand() % 160) / 10.0f;
+						wp.size = 1.0f + (std::rand() % 10) / 10.0f;
+						wp.alpha = 0.25f + (std::rand() % 45) / 100.0f;
+					}
+					_melowWeatherParticles.push_back(wp);
+				}
+			}
+
+			for (auto &wp : _melowWeatherParticles) {
+				wp.pos.ry() += wp.speedY * speedFactor;
+				if (effectsType == 0) { // Snow
+					wp.phase += 0.03f * speedFactor;
+					wp.pos.rx() += std::sin(wp.phase) * (wp.speedX * speedFactor);
+					if (wp.pos.y() > bodyH + 5) {
+						wp.pos.setY(-5);
+						wp.pos.setX(std::rand() % bodyW);
+					}
+					if (wp.pos.x() > bodyW + 10) {
+						wp.pos.setX(-5);
+					} else if (wp.pos.x() < -10) {
+						wp.pos.setX(bodyW + 5);
+					}
+				} else { // Rain
+					wp.pos.rx() += wp.speedX * speedFactor;
+					if (wp.pos.y() > bodyH + wp.length || wp.pos.x() < -60) {
+						wp.pos.setY(-wp.length);
+						wp.pos.setX((std::rand() % (bodyW + 200)) - 50);
+					}
+				}
+			}
+			weatherAlive = true;
+		} else if (!_melowWeatherParticles.empty()) {
+			_melowWeatherParticles.clear();
+			_melowWeatherType = -1;
+		}
+
+		if (weatherAlive) {
+			_melowgramBackgroundEffects->update();
+		} else if (_melowgramBackgroundEffects) {
+			_melowgramBackgroundEffects->update();
+		}
+
+		if (interactiveAlive) {
 			_melowgramParticlesOverlay->update();
 		} else {
 			if (!_melowParticles.empty()) _melowParticles.clear();
 			if (!_melowRipples.empty()) _melowRipples.clear();
 			_melowgramParticlesOverlay->update();
 		}
+
+		if (!weatherAlive && !interactiveAlive) {
+			_melowParticlesTimer.cancel();
+		}
 	});
 
 	body()->sizeValue() | rpl::on_next([=](QSize size) {
+		if (_melowgramBackgroundEffects) {
+			_melowgramBackgroundEffects->setGeometry(QRect(QPoint(0, 0), size));
+			_melowgramBackgroundEffects->lower();
+			if (_melowgramGifLabel) {
+				_melowgramGifLabel->lower();
+			}
+		}
 		_melowgramParticlesOverlay->resize(size);
 		_melowgramParticlesOverlay->raise();
 	}, _melowgramParticlesOverlay->lifetime());
+
+	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramEffects", false)) {
+		_melowParticlesTimer.callEach(16);
+	}
 }
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *e) {
 	if (!Core::IsAppLaunched() || !body()) {
 		return Ui::RpWindow::eventFilter(obj, e);
+	}
+	if (Core::App().settings().readPref<bool>("MelowGramEffects", false) && !_melowParticlesTimer.isActive()) {
+		_melowParticlesTimer.callEach(16);
 	}
 	if (e->type() == QEvent::MouseMove || e->type() == QEvent::MouseButtonPress) {
 		bool onMove = Core::App().settings().readPref<bool>("MelowGramParticlesMove", false);

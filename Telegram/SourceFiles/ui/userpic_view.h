@@ -51,7 +51,8 @@ struct PeerUserpicView {
 	QImage cached;
 	std::shared_ptr<QImage> cloud;
 	base::weak_ptr<const EmptyUserpic> empty;
-	uint32 paletteVersion : 30 = 0;
+	uint32 paletteVersion : 23 = 0;
+	uint32 customRounding : 7 = 0;
 	uint32 shape : 2 = 0;
 };
 

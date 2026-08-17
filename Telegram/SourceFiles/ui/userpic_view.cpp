@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/empty_userpic.h"
 #include "ui/painter.h"
 #include "ui/image/image_prepare.h"
+#include "ui/integration.h"
 
 #include <cmath>
 
@@ -142,8 +143,11 @@ void ValidateUserpicCache(
 	const auto full = QSize(size, size);
 	const auto version = style::PaletteVersion();
 	const auto shapeValue = static_cast<uint32>(shape) & 3;
+	const auto currentRounding = Integration::Instance().customAvatarRounding();
+	const auto customRoundingEnabled = (currentRounding > 0);
 	const auto regenerate = (view.cached.size() != QSize(size, size))
 		|| (view.shape != shapeValue)
+		|| (view.customRounding != currentRounding)
 		|| (cloud && !view.empty.null())
 		|| (empty && empty != view.empty.get())
 		|| (empty && view.paletteVersion != version);
@@ -152,6 +156,7 @@ void ValidateUserpicCache(
 	}
 	view.empty = empty;
 	view.shape = shapeValue;
+	view.customRounding = currentRounding;
 	view.paletteVersion = version;
 
 	if (cloud) {
@@ -167,6 +172,11 @@ void ValidateUserpicCache(
 				Images::CornersMask(size
 					* Ui::ForumUserpicRadiusMultiplier()
 					/ style::DevicePixelRatio()));
+		} else if (customRoundingEnabled) {
+			const auto radius = (size / 2.0) * (currentRounding / 100.0) / style::DevicePixelRatio();
+			view.cached = Images::Round(
+				std::move(view.cached),
+				Images::CornersMask(std::max(1, int(std::round(radius)))));
 		} else {
 			view.cached = Images::Circle(std::move(view.cached));
 		}
@@ -187,6 +197,9 @@ void ValidateUserpicCache(
 				size,
 				size,
 				size * Ui::ForumUserpicRadiusMultiplier());
+		} else if (customRoundingEnabled) {
+			const auto radius = int(std::round((size / 2.0) * (currentRounding / 100.0)));
+			empty->paintRounded(p, 0, 0, size, size, std::max(1, radius));
 		} else {
 			empty->paintCircle(p, 0, 0, size, size);
 		}

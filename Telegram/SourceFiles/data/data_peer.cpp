@@ -530,6 +530,11 @@ QImage PeerData::GenerateUserpicImage(
 			return round(*radius);
 		} else if (peer->isForum()) {
 			return round(size * Ui::ForumUserpicRadiusMultiplier());
+		} else if (Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramCustomAvatarRounding", false)) {
+			const auto pct = std::clamp(Core::App().settings().readPref<int>("MelowGramAvatarRadius", 100), 10, 100);
+			const auto r = (size / 2.0) * (pct / 100.0);
+			return round(std::max(1, int(std::round(r))));
 		} else {
 			return Images::Circle(std::move(image));
 		}
@@ -553,6 +558,11 @@ QImage PeerData::GenerateUserpicImage(
 			size,
 			size,
 			size * Ui::ForumUserpicRadiusMultiplier());
+	} else if (Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramCustomAvatarRounding", false)) {
+		const auto pct = std::clamp(Core::App().settings().readPref<int>("MelowGramAvatarRadius", 100), 10, 100);
+		const auto r = int(std::round((size / 2.0) * (pct / 100.0)));
+		peer->ensureEmptyUserpic()->paintRounded(p, 0, 0, size, size, std::max(1, r));
 	} else {
 		peer->ensureEmptyUserpic()->paintCircle(p, 0, 0, size, size);
 	}
@@ -1969,6 +1979,11 @@ void PeerData::setThemeToken(const QString &token) {
 }
 
 const QString &PeerData::themeToken() const {
+	static const auto kEmpty = QString();
+	if (Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false)) {
+		return kEmpty;
+	}
 	return _themeToken;
 }
 
@@ -1999,6 +2014,10 @@ bool PeerData::wallPaperOverriden() const {
 }
 
 const Data::WallPaper *PeerData::wallPaper() const {
+	if (Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false)) {
+		return nullptr;
+	}
 	return _wallPaper.get();
 }
 

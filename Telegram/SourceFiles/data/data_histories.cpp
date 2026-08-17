@@ -1144,17 +1144,26 @@ int Histories::sendPreparedMessage(
 		return sendRequest(history, type, [=](Fn<void()> finish) {
 			const auto session = &_owner->session();
 			const auto api = &session->api();
+			if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+				api->request(MTPaccount_UpdateStatus(MTP_bool(true))).send();
+			}
 			history->sendRequestId = api->request(
 				base::duplicate(request)
 			).done([=](
 					const MTPUpdates &result,
 					const MTP::Response &response) {
+				if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+					api->request(MTPaccount_UpdateStatus(MTP_bool(true))).send();
+				}
 				api->applyUpdates(result, randomId);
 				done(result, response);
 				finish();
 			}).fail([=](
 					const MTP::Error &error,
 					const MTP::Response &response) {
+				if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+					api->request(MTPaccount_UpdateStatus(MTP_bool(true))).send();
+				}
 				fail(error, response);
 				finish();
 			}).afterRequest(

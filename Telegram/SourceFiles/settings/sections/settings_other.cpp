@@ -19,6 +19,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_settings.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
+#include "ui/widgets/continuous_sliders.h"
+#include "ui/widgets/labels.h"
 #include "styles/style_widgets.h"
 #include "styles/style_window.h"
 #include "styles/style_menu_icons.h"
@@ -29,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "storage/localstorage.h"
 #include "settings/settings_builder.h"
 #include "settings/sections/settings_melowgram.h"
+#include "window/window_session_controller.h"
 
 namespace Settings {
 namespace {
@@ -154,7 +157,7 @@ void Other::setupContent() {
 			text,
 			st::settingsCheckbox
 		);
-		inner->add(object_ptr<Ui::Radiobutton>::fromRaw(radio), style::margins(54, 5, 0, 5));
+		inner->add(object_ptr<Ui::Radiobutton>::fromRaw(radio), style::margins(22, 5, 22, 5));
 	};
 	addRadio(0, "Всех");
 	addRadio(1, "Себя");
@@ -165,6 +168,104 @@ void Other::setupContent() {
 	});
 	
 	scopeWrap->toggleOn(streamerToggle->toggledValue());
+
+	const auto customSwitcherToggle = Settings::AddButtonWithIcon(
+		block,
+		rpl::single(u"Custom Switcher"_q),
+		Settings::GetRoundedButtonStyle(),
+		{ &st::menuIconSettings }
+	);
+	customSwitcherToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramCustomSwitcher", false)
+	));
+	
+	std::move(
+		customSwitcherToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramCustomSwitcher", false);
+	}) | rpl::on_next([=](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramCustomSwitcher", value);
+		Core::App().saveSettingsDelayed();
+		update();
+	}, customSwitcherToggle->lifetime());
+
+	const auto hideCustomBgToggle = Settings::AddButtonWithIcon(
+		block,
+		rpl::single(u"Hide custom backgrounds"_q),
+		Settings::GetRoundedButtonStyle(),
+		{ &st::menuIconChatBubble }
+	);
+	hideCustomBgToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false)
+	));
+	
+	std::move(
+		hideCustomBgToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false);
+	}) | rpl::on_next([=](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramHideCustomBackgrounds", value);
+		Core::App().saveSettingsDelayed();
+		update();
+	}, hideCustomBgToggle->lifetime());
+
+	const auto avatarRoundingToggle = Settings::AddButtonWithIcon(
+		block,
+		rpl::single(u"Custom avatar rounding"_q),
+		Settings::GetRoundedButtonStyle(),
+		{ &st::menuIconProfile }
+	);
+	avatarRoundingToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramCustomAvatarRounding", false)
+	));
+
+	auto avatarRoundingWrap = block->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			block,
+			object_ptr<Ui::VerticalLayout>(block)
+		)
+	);
+
+	auto avatarRoundingInner = avatarRoundingWrap->entity();
+
+	int initialRounding = std::clamp(
+		Core::App().settings().readPref<int>("MelowGramAvatarRadius", 100),
+		10,
+		100
+	);
+
+	auto roundingSlider = Settings::MakeSliderWithLabel(
+		avatarRoundingInner,
+		st::settingsScale,
+		st::settingsScaleLabel,
+		15
+	);
+
+	auto roundingSliderLabel = roundingSlider.label;
+	auto roundingSliderWidget = roundingSlider.slider;
+
+	roundingSliderWidget->setChangeProgressCallback([=](float64 value) {
+		const int val = std::clamp(int(std::round(10 + value * 90)), 10, 100);
+		Core::App().settings().writePref<int>("MelowGramAvatarRadius", val);
+		roundingSliderLabel->setText(QString::number(val) + "%");
+		update();
+	});
+	roundingSliderWidget->setValue((initialRounding - 10) / 90.0);
+	roundingSliderLabel->setText(QString::number(initialRounding) + "%");
+
+	avatarRoundingInner->add(std::move(roundingSlider.widget), QMargins(22, 5, 22, 10));
+
+	avatarRoundingWrap->toggleOn(avatarRoundingToggle->toggledValue());
+
+	std::move(
+		avatarRoundingToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramCustomAvatarRounding", false);
+	}) | rpl::on_next([=](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramCustomAvatarRounding", value);
+		Core::App().saveSettingsDelayed();
+		update();
+	}, avatarRoundingToggle->lifetime());
 
 	Ui::ResizeFitChild(this, content);
 }
