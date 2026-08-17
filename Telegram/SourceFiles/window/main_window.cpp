@@ -402,6 +402,8 @@ MainWindow::MainWindow(not_null<Controller*> controller)
 	}));
 }))
 , _body(body()) {
+	window()->setAttribute(Qt::WA_NoSystemBackground, false);
+	window()->setAttribute(Qt::WA_TranslucentBackground, true);
 
 	style::PaletteChanged(
 	) | rpl::on_next([=] {
@@ -569,15 +571,14 @@ void MainWindow::init() {
 void MainWindow::updateWindowTransparency() {
 	if (!Core::IsAppLaunched()) return;
 	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
-	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
-	const auto translucent = blur && (blackout < 100);
-	if (window()->testAttribute(Qt::WA_TranslucentBackground) != translucent) {
-		window()->setAttribute(Qt::WA_NoSystemBackground, !translucent);
-		window()->setAttribute(Qt::WA_TranslucentBackground, translucent);
+	if (blur) {
+		window()->setAttribute(Qt::WA_NoSystemBackground, false);
+		window()->setAttribute(Qt::WA_TranslucentBackground, true);
+	} else {
+		window()->setAttribute(Qt::WA_TranslucentBackground, false);
 	}
 	Window::Theme::ApplyMelowGramModifiers();
 	
-	// We no longer check MelowGramTransparency. Blackout does the job.
 	if (_melowgramGifLabel) {
 		_melowgramGifLabel->update();
 	}

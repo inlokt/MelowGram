@@ -1713,9 +1713,8 @@ void ApplyMelowGramModifiers() {
 	if (!Core::IsAppLaunched()) {
 		return;
 	}
-	const auto blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
 	const auto blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
-	const auto alpha = (blur && blackout < 100) ? ((blackout * 255) / 100) : 255;
+	const auto alpha = (blackout * 255) / 100;
 
 	style::main_palette::setColor(QLatin1String("windowBg"), st::windowBg->c.red(), st::windowBg->c.green(), st::windowBg->c.blue(), alpha);
 	style::main_palette::setColor(QLatin1String("windowBgOver"), st::windowBgOver->c.red(), st::windowBgOver->c.green(), st::windowBgOver->c.blue(), alpha);
@@ -1726,7 +1725,7 @@ void ApplyMelowGramModifiers() {
 	style::main_palette::setColor(QLatin1String("introBg"), st::introBg->c.red(), st::introBg->c.green(), st::introBg->c.blue(), alpha);
 	style::main_palette::setColor(QLatin1String("titleBg"), st::titleBg->c.red(), st::titleBg->c.green(), st::titleBg->c.blue(), alpha);
 	style::main_palette::setColor(QLatin1String("titleBgActive"), st::titleBgActive->c.red(), st::titleBgActive->c.green(), st::titleBgActive->c.blue(), alpha);
-	style::main_palette::setColor(QLatin1String("contactsBg"), st::contactsBg->c.red(), st::contactsBg->c.green(), st::contactsBg->c.blue(), 255);
+	style::main_palette::setColor(QLatin1String("contactsBg"), st::contactsBg->c.red(), st::contactsBg->c.green(), st::contactsBg->c.blue(), alpha);
 	style::main_palette::setColor(QLatin1String("searchedBarBg"), st::searchedBarBg->c.red(), st::searchedBarBg->c.green(), st::searchedBarBg->c.blue(), alpha);
 	
 	style::main_palette::setColor(QLatin1String("menuBg"), st::menuBg->c.red(), st::menuBg->c.green(), st::menuBg->c.blue(), 255);

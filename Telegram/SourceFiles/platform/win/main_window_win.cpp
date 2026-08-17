@@ -607,10 +607,9 @@ void MainWindow::updateWindowTransparency() {
 	if (!Core::IsAppLaunched()) return;
 
 	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
-	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
 
 	if (Dlls::SetWindowCompositionAttribute) {
-		if (blur && blackout < 100) {
+		if (blur) {
 			ACCENT_POLICY policy = { ACCENT_ENABLE_BLURBEHIND, 0, 0, 0 };
 			Dlls::WINDOWCOMPOSITIONATTRIBDATA data = { Dlls::WINDOWCOMPOSITIONATTRIB::WCA_ACCENT_POLICY, &policy, sizeof(ACCENT_POLICY) };
 			Dlls::SetWindowCompositionAttribute(hwnd, &data);
