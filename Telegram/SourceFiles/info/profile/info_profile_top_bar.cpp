@@ -1951,9 +1951,12 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	}
 	totalElementsWidth += botVerifySkip;
 
+	const auto centeredTitleLeft = (width() - _title->width()) / 2;
 	const auto melowUserSkip = _melowUserBadge ? (MelowBadge::kSize + 6) : 0;
 	const auto collapsedTitleLeft = titleMostLeft + melowUserSkip;
-	const auto expandedTitleLeft = (width() - totalElementsWidth) / 2 + melowUserSkip;
+	const auto expandedTitleLeft = _melowUserBadge
+		? centeredTitleLeft
+		: ((width() - totalElementsWidth) / 2);
 
 	auto titleLeft = anim::interpolate(
 		collapsedTitleLeft,
@@ -1973,7 +1976,7 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	if (_melowUserBadge) {
 		const auto userBadgeLeft = anim::interpolate(
 			titleMostLeft,
-			(width() - totalElementsWidth) / 2,
+			centeredTitleLeft - MelowBadge::kSize - 6,
 			progressCurrent);
 		_melowUserBadge->moveToLeft(userBadgeLeft, melowBadgeY);
 	}
