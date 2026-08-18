@@ -266,10 +266,6 @@ private:
 
 	object_ptr<Ui::AbstractButton> _melowUserBadge = { nullptr };
 	object_ptr<Ui::AbstractButton> _melowChannelBadge = { nullptr };
-	Ui::Animations::Simple _melowUserAnimation;
-	Ui::Animations::Simple _melowChannelAnimation;
-	float64 _melowUserAngle = 0.0;
-	float64 _melowChannelAngle = 0.0;
 
 	object_ptr<Ui::FlatLabel> _title;
 	std::unique_ptr<Ui::StarsRating> _starsRating;

@@ -53,33 +53,13 @@ void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
 	p.setRenderHint(QPainter::Antialiasing, true);
 	p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
-	static const auto backSvg = std::make_unique<QSvgRenderer>(u":/gui/melow/badge_back.svg"_q);
 	static const auto logoSvg = std::make_unique<QSvgRenderer>(u":/gui/melow/badge_logo.svg"_q);
-	static const auto logoImage = std::make_unique<QImage>(u":/gui/melow/badge_logo.png"_q);
 
-	const auto cx = targetRect.x() + targetRect.width() / 2.0;
-	const auto cy = targetRect.y() + targetRect.height() / 2.0;
 	const auto w = static_cast<qreal>(targetRect.width());
 	const auto h = static_cast<qreal>(targetRect.height());
 
-	p.save();
-	p.translate(cx, cy);
-	if (rotationAngle != 0.0) {
-		p.rotate(rotationAngle);
-	}
-	if (backSvg->isValid()) {
-		backSvg->render(&p, QRectF(-w / 2.0, -h / 2.0, w, h));
-	}
-	p.restore();
-
 	if (logoSvg->isValid()) {
-		const auto logoW = w * 0.60;
-		const auto logoH = logoW * (960.0 / 977.0);
-		logoSvg->render(&p, QRectF(cx - logoW / 2.0, cy - logoH / 2.0 + 0.3, logoW, logoH));
-	} else if (!logoImage->isNull()) {
-		const auto logoW = w * 0.60;
-		const auto logoH = logoW * (118.0 / 134.0);
-		p.drawImage(QRectF(cx - logoW / 2.0, cy - logoH / 2.0 + 0.3, logoW, logoH), *logoImage);
+		logoSvg->render(&p, QRectF(targetRect.x(), targetRect.y(), w, h));
 	}
 
 	p.restore();

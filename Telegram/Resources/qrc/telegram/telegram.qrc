@@ -3,8 +3,7 @@
     <file alias="melow/avatar.jpg">../../melow/avatar.jpg</file>
     <file alias="melow/avatar.svg">../../melow/avatar.svg</file>
     <file alias="melow/logo.svg">../../melow/logo.svg</file>
-    <file alias="melow/badge_back.svg">../../melow/badge/svg/back.svg</file>
-    <file alias="melow/badge_logo.svg">../../melow/badge/svg/logo2.svg</file>
+    <file alias="melow/badge_logo.svg">../../melow/badge/svg/logo.svg</file>
     <file alias="melow/badge_back.png">../../melow/badge/png/back.png</file>
     <file alias="melow/badge_logo.png">../../melow/badge/png/logo2.png</file>
     <file alias="art/background.tgv">../../art/background.tgv</file>

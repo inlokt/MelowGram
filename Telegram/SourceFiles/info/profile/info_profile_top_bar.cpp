@@ -120,9 +120,8 @@ namespace {
 
 class MelowBadgeButton final : public Ui::AbstractButton {
 public:
-	MelowBadgeButton(QWidget *parent, Fn<float64()> angle)
-	: Ui::AbstractButton(parent)
-	, _angle(std::move(angle)) {
+	explicit MelowBadgeButton(QWidget *parent)
+	: Ui::AbstractButton(parent) {
 		setCursor(style::cur_pointer);
 		resize(MelowBadge::kSize, MelowBadge::kSize);
 	}
@@ -130,11 +129,8 @@ public:
 protected:
 	void paintEvent(QPaintEvent *e) override {
 		Painter p(this);
-		MelowBadge::Paint(p, rect(), _angle ? _angle() : 0.0);
+		MelowBadge::Paint(p, rect());
 	}
-
-private:
-	Fn<float64()> _angle;
 };
 
 class Userpic final
@@ -435,19 +431,8 @@ TopBar::TopBar(
 	_title->setContextCopyText(tr::lng_profile_copy_fullname(tr::now));
 
 	if (MelowBadge::IsUser(_peer)) {
-		_melowUserBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this, [this] { return _melowUserAngle; }));
+		_melowUserBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this));
 		_melowUserBadge->setClickedCallback([=, peer = _peer] {
-			_melowUserAnimation.start(
-				[this](float64 val) {
-					_melowUserAngle = val * 360.0;
-					if (_melowUserBadge) {
-						_melowUserBadge->update();
-					}
-				},
-				0.0,
-				1.0,
-				crl::time(500),
-				anim::easeOutCubic);
 			controller->showToast(Ui::Toast::Config{
 				.text = peer->name() + u" является официальным разработчиком MelowDesktop"_q,
 			});
@@ -455,19 +440,8 @@ TopBar::TopBar(
 		_melowUserBadge->show();
 	}
 	if (MelowBadge::IsChannel(_peer)) {
-		_melowChannelBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this, [this] { return _melowChannelAngle; }));
+		_melowChannelBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this));
 		_melowChannelBadge->setClickedCallback([=] {
-			_melowChannelAnimation.start(
-				[this](float64 val) {
-					_melowChannelAngle = val * 360.0;
-					if (_melowChannelBadge) {
-						_melowChannelBadge->update();
-					}
-				},
-				0.0,
-				1.0,
-				crl::time(500),
-				anim::easeOutCubic);
 			controller->showToast(Ui::Toast::Config{
 				.text = u"MelowGram является официальным каналом MelowDesktop"_q,
 			});
@@ -1977,12 +1951,14 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	}
 	totalElementsWidth += botVerifySkip;
 
-	const auto centeredTitleLeft = (width() - _title->width()) / 2;
-	const auto collapsedTitleLeft = titleMostLeft + (_melowUserBadge ? (MelowBadge::kSize + 6) : 0);
+	const auto melowUserSkip = _melowUserBadge ? (MelowBadge::kSize + 6) : 0;
+	const auto collapsedTitleLeft = titleMostLeft + melowUserSkip;
+	const auto expandedTitleLeft = (width() - totalElementsWidth) / 2 + melowUserSkip;
 
-	auto titleLeft = _melowUserBadge
-		? anim::interpolate(centeredTitleLeft, collapsedTitleLeft, progressCurrent)
-		: anim::interpolate(titleMostLeft, (width() - totalElementsWidth) / 2, progressCurrent);
+	auto titleLeft = anim::interpolate(
+		collapsedTitleLeft,
+		expandedTitleLeft,
+		progressCurrent);
 
 	if (_botVerify) {
 		_botVerify->move(
@@ -1996,8 +1972,8 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 
 	if (_melowUserBadge) {
 		const auto userBadgeLeft = anim::interpolate(
-			centeredTitleLeft - MelowBadge::kSize - 6,
 			titleMostLeft,
+			(width() - totalElementsWidth) / 2,
 			progressCurrent);
 		_melowUserBadge->moveToLeft(userBadgeLeft, melowBadgeY);
 	}
