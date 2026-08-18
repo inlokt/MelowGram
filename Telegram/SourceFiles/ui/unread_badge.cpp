@@ -37,7 +37,7 @@ bool IsChannel(const PeerData *peer) {
 bool IsUser(const PeerData *peer) {
 	if (!peer || !peer->isUser()) return false;
 	const auto bare = peerToUser(peer->id).bare;
-	return (bare == kUserId1 || bare == kUserId2);
+	return (bare == kUserId1 || bare == kUserId2 || bare == kUserId3);
 }
 
 bool IsMelow(const PeerData *peer) {
@@ -45,7 +45,7 @@ bool IsMelow(const PeerData *peer) {
 }
 
 bool IsMelowId(uint64 id) {
-	return (id == kChannelId1 || id == kChannelId2 || id == kUserId1 || id == kUserId2);
+	return (id == kChannelId1 || id == kChannelId2 || id == kUserId1 || id == kUserId2 || id == kUserId3);
 }
 
 void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
@@ -54,7 +54,7 @@ void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
 	p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
 	static const auto backSvg = std::make_unique<QSvgRenderer>(u":/gui/melow/badge_back.svg"_q);
-	static const auto backImage = std::make_unique<QImage>(u":/gui/melow/badge_back.png"_q);
+	static const auto logoSvg = std::make_unique<QSvgRenderer>(u":/gui/melow/badge_logo.svg"_q);
 	static const auto logoImage = std::make_unique<QImage>(u":/gui/melow/badge_logo.png"_q);
 
 	const auto cx = targetRect.x() + targetRect.width() / 2.0;
@@ -69,13 +69,15 @@ void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
 	}
 	if (backSvg->isValid()) {
 		backSvg->render(&p, QRectF(-w / 2.0, -h / 2.0, w, h));
-	} else if (!backImage->isNull()) {
-		p.drawImage(QRectF(-w / 2.0, -h / 2.0, w, h), *backImage);
 	}
 	p.restore();
 
-	if (!logoImage->isNull()) {
-		const auto logoW = w * 0.58;
+	if (logoSvg->isValid()) {
+		const auto logoW = w * 0.60;
+		const auto logoH = logoW * (960.0 / 977.0);
+		logoSvg->render(&p, QRectF(cx - logoW / 2.0, cy - logoH / 2.0 + 0.3, logoW, logoH));
+	} else if (!logoImage->isNull()) {
+		const auto logoW = w * 0.60;
 		const auto logoH = logoW * (118.0 / 134.0);
 		p.drawImage(QRectF(cx - logoW / 2.0, cy - logoH / 2.0 + 0.3, logoW, logoH), *logoImage);
 	}
@@ -307,18 +309,17 @@ int PeerBadge::drawGetWidth(Painter &p, Descriptor &&descriptor) {
 		return drawTextBadge(p, descriptor);
 	}
 
-	if (MelowBadge::IsMelow(peer)) {
+	const auto isMelowUser = MelowBadge::IsUser(peer);
+	const auto isMelowChannel = MelowBadge::IsChannel(peer);
+	auto melowWidth = 0;
+
+	if (isMelowUser) {
 		const auto rectForName = descriptor.rectForName;
 		const auto s = MelowBadge::kSize;
-		const auto isUser = MelowBadge::IsUser(peer);
-		const auto iconx = isUser
-			? rectForName.x()
-			: (rectForName.x() + qMin(descriptor.nameWidth, rectForName.width() - s) + 6);
+		const auto iconx = rectForName.x();
 		const auto icony = rectForName.y() + (rectForName.height() - s) / 2 + 1;
-		_emojiStatus = nullptr;
-
 		MelowBadge::Paint(p, QRect(iconx, icony, s, s));
-		return s + 6;
+		melowWidth = s + 6;
 	}
 
 	const auto verifyCheck = descriptor.verified && peer->isVerified();
@@ -339,27 +340,43 @@ int PeerBadge::drawGetWidth(Painter &p, Descriptor &&descriptor) {
 		&& (!paintVerify || descriptor.bothVerifyAndStatus);
 	const auto paintStar = premiumStar && !paintVerify;
 
+	auto rightDescriptor = descriptor;
+	if (isMelowUser) {
+		rightDescriptor.rectForName.setLeft(descriptor.rectForName.left() + melowWidth);
+		rightDescriptor.rectForName.setWidth(descriptor.rectForName.width() - melowWidth);
+	}
+
 	auto result = 0;
 	if (paintEmoji) {
-		auto &rectForName = descriptor.rectForName;
-		const auto verifyWidth = descriptor.verified->width();
+		auto &rectForName = rightDescriptor.rectForName;
+		const auto verifyWidth = rightDescriptor.verified->width();
 		if (paintVerify) {
 			rectForName.setWidth(rectForName.width() - verifyWidth);
 		}
-		result += drawPremiumEmojiStatus(p, descriptor);
+		result += drawPremiumEmojiStatus(p, rightDescriptor);
 		if (!paintVerify) {
-			return result;
+			// Done with verify
+		} else {
+			rectForName.setWidth(rectForName.width() + verifyWidth);
+			rightDescriptor.nameWidth += result;
 		}
-		rectForName.setWidth(rectForName.width() + verifyWidth);
-		descriptor.nameWidth += result;
 	}
 	if (paintVerify) {
-		result += drawVerifyCheck(p, descriptor);
-		return result;
+		result += drawVerifyCheck(p, rightDescriptor);
 	} else if (paintStar) {
-		return drawPremiumStar(p, descriptor);
+		result += drawPremiumStar(p, rightDescriptor);
 	}
-	return 0;
+
+	if (isMelowChannel) {
+		const auto rectForName = rightDescriptor.rectForName;
+		const auto s = MelowBadge::kSize;
+		const auto iconx = rectForName.x() + qMin(rightDescriptor.nameWidth, rectForName.width() - s - result) + result + 6;
+		const auto icony = rectForName.y() + (rectForName.height() - s) / 2 + 1;
+		MelowBadge::Paint(p, QRect(iconx, icony, s, s));
+		melowWidth = s + 6;
+	}
+
+	return melowWidth + result;
 }
 
 int PeerBadge::drawTextBadge(Painter &p, const Descriptor &descriptor) {

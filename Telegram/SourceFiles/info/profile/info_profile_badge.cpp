@@ -143,9 +143,8 @@ void Badge::setContent(Content content) {
 					_customStatusLoopsLimit);
 			}
 		}
-		const auto melowSize = isMelow ? MelowBadge::kSize : 0;
-		const auto width = emoji + (icon ? icon->width() : melowSize);
-		const auto height = std::max(emoji, icon ? icon->height() : melowSize);
+		const auto width = emoji + (icon ? icon->width() : 0);
+		const auto height = std::max(emoji, icon ? icon->height() : 0);
 		_view->resize(width, height);
 		_view->paintRequest(
 		) | rpl::on_next([=, check = _view.data()]{
@@ -162,11 +161,7 @@ void Badge::setContent(Content content) {
 					_emojiStatus->paint(p, args);
 				}
 			}
-			if (isMelow) {
-				auto p = Painter(check);
-				const auto s = MelowBadge::kSize;
-				MelowBadge::Paint(p, QRect(emoji, (check->height() - s) / 2, s, s), _melowAngle);
-			} else if (icon) {
+			if (icon) {
 				auto p = Painter(check);
 				if (_overrideSt && !iconForeground) {
 					icon->paint(
@@ -306,16 +301,12 @@ Data::CustomEmojiSizeTag Badge::sizeTag() const {
 
 rpl::producer<Badge::Content> BadgeContentForPeer(not_null<PeerData*> peer) {
 	const auto statusOnlyForPremium = peer->isUser();
-	const uint64 peerId = (peer->isChannel()) ? peerToChannel(peer->id).bare : ((peer->isUser()) ? peerToUser(peer->id).bare : 0);
 	return rpl::combine(
 		BadgeValue(peer),
 		EmojiStatusIdValue(peer)
 	) | rpl::map([=](BadgeType badge, EmojiStatusId emojiStatusId) {
-		if (MelowBadge::IsMelowId(peerId)) {
-			badge = BadgeType::Premium;
-		}
 		if (emojiStatusId.collectible && (badge == BadgeType::Verified)) {
-			return Badge::Content{ BadgeType::Premium, emojiStatusId, peerId };
+			return Badge::Content{ BadgeType::Premium, emojiStatusId };
 		}
 		if (badge == BadgeType::Verified) {
 			badge = BadgeType::None;
@@ -325,7 +316,7 @@ rpl::producer<Badge::Content> BadgeContentForPeer(not_null<PeerData*> peer) {
 		} else if (emojiStatusId && badge == BadgeType::None) {
 			badge = BadgeType::Premium;
 		}
-		return Badge::Content{ badge, emojiStatusId, peerId };
+		return Badge::Content{ badge, emojiStatusId };
 	});
 }
 

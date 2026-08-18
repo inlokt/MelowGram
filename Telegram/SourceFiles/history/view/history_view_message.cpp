@@ -2460,55 +2460,59 @@ void Message::paintFromName(
 	}();
 	const auto isMelowUser = MelowBadge::IsUser(from);
 	const auto isMelowChannel = MelowBadge::IsChannel(from);
-	const auto badgeSize = (isMelowUser || isMelowChannel) ? MelowBadge::kSize : st::dialogsPremiumIcon.icon.width();
-	const auto statusWidth = _fromNameStatus ? (badgeSize + 6) : 0;
+	const auto melowWidth = (isMelowUser || isMelowChannel) ? (MelowBadge::kSize + 6) : 0;
+	const auto premiumWidth = _fromNameStatus ? (st::dialogsPremiumIcon.icon.width() + 4) : 0;
+	const auto statusWidth = melowWidth + premiumWidth;
 	const auto nameAvailableWidth = (statusWidth && availableWidth > statusWidth)
 		? (availableWidth - statusWidth)
 		: availableWidth;
 	if (statusWidth && availableWidth > statusWidth) {
 		const auto y = trect.top();
-		const auto icony = y + (st::msgNameFont->height - badgeSize) / 2 + 1;
-		auto color = nameFg;
-		color.setAlpha(115);
-		const auto id = from ? from->emojiStatusId() : EmojiStatusId();
-		if (_fromNameStatus->id != id) {
-			const auto that = const_cast<Message*>(this);
-			_fromNameStatus->custom = id
-				? MakeWrappedEmoji<Ui::Text::LimitedLoopsEmoji>(
-					history()->owner().customEmojiManager().create(
-						Data::EmojiStatusCustomId(id),
-						[=] { that->customEmojiRepaint(); }),
-					kPlayStatusLimit)
-				: nullptr;
-			if (id && !_fromNameStatus->id) {
-				history()->owner().registerHeavyViewPart(that);
-			} else if (!id && _fromNameStatus->id) {
-				that->checkHeavyPart();
-			}
-			_fromNameStatus->id = id;
-		}
+		const auto icony = y + (st::msgNameFont->height - MelowBadge::kSize) / 2 + 1;
 		if (isMelowUser) {
-			MelowBadge::Paint(p, QRect(availableLeft, icony, badgeSize, badgeSize));
-		} else if (isMelowChannel) {
-			const auto x = availableLeft
-				+ std::min(nameAvailableWidth, nameText->maxWidth());
-			MelowBadge::Paint(p, QRect(x + 5, icony, badgeSize, badgeSize));
-		} else if (_fromNameStatus->custom) {
-			const auto x = availableLeft
-				+ std::min(nameAvailableWidth, nameText->maxWidth());
-			clearCustomEmojiRepaint();
-			_fromNameStatus->custom->paint(p, {
-				.textColor = color,
-				.now = context.now,
-				.position = QPoint(
-					x - 2 * _fromNameStatus->skip,
-					y + _fromNameStatus->skip),
-				.paused = context.paused || On(PowerSaving::kEmojiStatus),
-			});
-		} else {
-			const auto x = availableLeft
-				+ std::min(nameAvailableWidth, nameText->maxWidth());
-			st::dialogsPremiumIcon.icon.paint(p, x, y, width(), color);
+			MelowBadge::Paint(p, QRect(availableLeft, icony, MelowBadge::kSize, MelowBadge::kSize));
+		}
+		const auto nameLeft = isMelowUser ? (availableLeft + melowWidth) : availableLeft;
+		const auto nameWidth = std::min(nameText->maxWidth(), nameAvailableWidth);
+
+		if (_fromNameStatus) {
+			auto color = nameFg;
+			color.setAlpha(115);
+			const auto id = from ? from->emojiStatusId() : EmojiStatusId();
+			if (_fromNameStatus->id != id) {
+				const auto that = const_cast<Message*>(this);
+				_fromNameStatus->custom = id
+					? MakeWrappedEmoji<Ui::Text::LimitedLoopsEmoji>(
+						history()->owner().customEmojiManager().create(
+							Data::EmojiStatusCustomId(id),
+							[=] { that->customEmojiRepaint(); }),
+						kPlayStatusLimit)
+					: nullptr;
+				if (id && !_fromNameStatus->id) {
+					history()->owner().registerHeavyViewPart(that);
+				} else if (!id && _fromNameStatus->id) {
+					that->checkHeavyPart();
+				}
+				_fromNameStatus->id = id;
+			}
+			const auto premX = nameLeft + nameWidth + 4;
+			if (_fromNameStatus->custom) {
+				clearCustomEmojiRepaint();
+				_fromNameStatus->custom->paint(p, {
+					.textColor = color,
+					.now = context.now,
+					.position = QPoint(
+						premX - 2 * _fromNameStatus->skip,
+						y + _fromNameStatus->skip),
+					.paused = context.paused || On(PowerSaving::kEmojiStatus),
+				});
+			} else {
+				st::dialogsPremiumIcon.icon.paint(p, premX, y, width(), color);
+			}
+		}
+		if (isMelowChannel) {
+			const auto chanX = nameLeft + nameWidth + 4 + premiumWidth;
+			MelowBadge::Paint(p, QRect(chanX, icony, MelowBadge::kSize, MelowBadge::kSize));
 		}
 	}
 	p.setFont(st::msgNameFont);
@@ -2517,7 +2521,7 @@ void Message::paintFromName(
 	const auto nameWidth = std::min(
 		nameText->maxWidth(),
 		nameAvailableWidth);
-	const auto nameLeft = (isMelowUser && statusWidth) ? (availableLeft + statusWidth) : availableLeft;
+	const auto nameLeft = isMelowUser ? (availableLeft + melowWidth) : availableLeft;
 	if (!from) {
 		if (const auto tooltip = Get<HiddenSenderTooltip>()) {
 			tooltip->linkRect = QRect(
@@ -2537,11 +2541,13 @@ void Message::paintFromName(
 		.availableWidth = nameAvailableWidth,
 		.elisionLines = 1,
 	});
-	const auto skipWidth = nameText->maxWidth()
+	const auto skipWidth = (isMelowUser ? melowWidth : 0)
+		+ nameText->maxWidth()
 		+ (_fromNameStatus
-			? (badgeSize
+			? (st::dialogsPremiumIcon.icon.width()
 				+ st::msgServiceFont->spacew)
 			: 0)
+		+ (isMelowChannel ? melowWidth : 0)
 		+ st::msgServiceFont->spacew;
 	availableLeft += skipWidth;
 	availableWidth -= skipWidth;

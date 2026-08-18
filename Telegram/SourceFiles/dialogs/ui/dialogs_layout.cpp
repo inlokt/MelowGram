@@ -899,8 +899,8 @@ void PaintRow(
 		});
 		const auto isMelowUser = MelowBadge::IsUser(from);
 		rectForName.setWidth(rectForName.width() - badgeWidth);
-		if (isMelowUser && badgeWidth > 0) {
-			rectForName.setLeft(rectForName.left() + badgeWidth);
+		if (isMelowUser) {
+			rectForName.setLeft(rectForName.left() + MelowBadge::kSize + 6);
 		}
 	};
 	if (flags

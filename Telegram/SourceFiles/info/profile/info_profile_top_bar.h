@@ -264,6 +264,13 @@ private:
 	std::vector<std::unique_ptr<BadgeTooltip>> _badgeOldTooltips;
 	uint64 _badgeCollectibleId = 0;
 
+	object_ptr<Ui::AbstractButton> _melowUserBadge = { nullptr };
+	object_ptr<Ui::AbstractButton> _melowChannelBadge = { nullptr };
+	Ui::Animations::Simple _melowUserAnimation;
+	Ui::Animations::Simple _melowChannelAnimation;
+	float64 _melowUserAngle = 0.0;
+	float64 _melowChannelAngle = 0.0;
+
 	object_ptr<Ui::FlatLabel> _title;
 	std::unique_ptr<Ui::StarsRating> _starsRating;
 	std::unique_ptr<Ui::AnimatedString> _tabSubtitle;

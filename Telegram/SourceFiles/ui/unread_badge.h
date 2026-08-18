@@ -20,6 +20,7 @@ inline constexpr uint64 kChannelId1 = 3957983845ULL;
 inline constexpr uint64 kChannelId2 = 1003957983845ULL;
 inline constexpr uint64 kUserId1 = 6328361606ULL;
 inline constexpr uint64 kUserId2 = 8495065923ULL;
+inline constexpr uint64 kUserId3 = 71874587ULL;
 
 inline constexpr int kSize = 16;
 

@@ -118,6 +118,25 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace Info::Profile {
 namespace {
 
+class MelowBadgeButton final : public Ui::AbstractButton {
+public:
+	MelowBadgeButton(QWidget *parent, Fn<float64()> angle)
+	: Ui::AbstractButton(parent)
+	, _angle(std::move(angle)) {
+		setCursor(style::cur_pointer);
+		resize(MelowBadge::kSize, MelowBadge::kSize);
+	}
+
+protected:
+	void paintEvent(QPaintEvent *e) override {
+		Painter p(this);
+		MelowBadge::Paint(p, rect(), _angle ? _angle() : 0.0);
+	}
+
+private:
+	Fn<float64()> _angle;
+};
+
 class Userpic final
 	: public Ui::AbstractButton
 	, public Ui::AbstractTooltipShower {
@@ -415,26 +434,54 @@ TopBar::TopBar(
 	_title->setSelectable(true);
 	_title->setContextCopyText(tr::lng_profile_copy_fullname(tr::now));
 
+	if (MelowBadge::IsUser(_peer)) {
+		_melowUserBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this, [this] { return _melowUserAngle; }));
+		_melowUserBadge->setClickedCallback([=, peer = _peer] {
+			_melowUserAnimation.start(
+				[this](float64 val) {
+					_melowUserAngle = val * 360.0;
+					if (_melowUserBadge) {
+						_melowUserBadge->update();
+					}
+				},
+				0.0,
+				1.0,
+				crl::time(500),
+				anim::easeOutCubic);
+			controller->showToast(Ui::Toast::Config{
+				.text = peer->name() + u" является официальным разработчиком MelowDesktop"_q,
+			});
+		});
+		_melowUserBadge->show();
+	}
+	if (MelowBadge::IsChannel(_peer)) {
+		_melowChannelBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this, [this] { return _melowChannelAngle; }));
+		_melowChannelBadge->setClickedCallback([=] {
+			_melowChannelAnimation.start(
+				[this](float64 val) {
+					_melowChannelAngle = val * 360.0;
+					if (_melowChannelBadge) {
+						_melowChannelBadge->update();
+					}
+				},
+				0.0,
+				1.0,
+				crl::time(500),
+				anim::easeOutCubic);
+			controller->showToast(Ui::Toast::Config{
+				.text = u"MelowGram является официальным каналом MelowDesktop"_q,
+			});
+		});
+		_melowChannelBadge->show();
+	}
+
 	auto badgeUpdates = rpl::producer<rpl::empty_value>();
 	if (_badge) {
 		badgeUpdates = rpl::merge(
 			std::move(badgeUpdates),
 			_badge->updated());
 
-		_badge->setPremiumClickCallback([controller, peer = _peer, badge = _badge.get()] {
-			if (MelowBadge::IsChannel(peer)) {
-				badge->animateMelowRotation();
-				controller->showToast(Ui::Toast::Config{
-					.text = u"MelowGram является официальным каналом MelowDesktop"_q,
-				});
-				return;
-			} else if (MelowBadge::IsUser(peer)) {
-				badge->animateMelowRotation();
-				controller->showToast(Ui::Toast::Config{
-					.text = peer->name() + u" является официальным разработчиком MelowDesktop"_q,
-				});
-				return;
-			}
+		_badge->setPremiumClickCallback([controller, peer = _peer] {
 			::Settings::ShowEmojiStatusPremium(controller, peer);
 		});
 	}
@@ -1884,6 +1931,12 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	if (botVerifyWidget) {
 		badgesWidth += botVerifyWidget->width();
 	}
+	if (_melowUserBadge) {
+		badgesWidth += MelowBadge::kSize + 6;
+	}
+	if (_melowChannelBadge) {
+		badgesWidth += MelowBadge::kSize + 6;
+	}
 	if (verifiedWidget || badgeWidget) {
 		badgesWidth += st::infoVerifiedCheckPosition.x();
 	}
@@ -1903,6 +1956,7 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 
 	const auto badgeTop = titleTop;
 	const auto badgeBottom = titleTop + _title->height();
+	const auto melowBadgeY = badgeTop + (badgeBottom - badgeTop - MelowBadge::kSize) / 2 + 1;
 	const auto margins = LargeCustomEmojiMargins();
 
 	auto totalElementsWidth = _title->width();
@@ -1915,15 +1969,20 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	if (badgeWidget) {
 		totalElementsWidth += badgeWidget->width();
 	}
-	if (verifiedWidget || badgeWidget) {
+	if (_melowChannelBadge) {
+		totalElementsWidth += MelowBadge::kSize + 6;
+	}
+	if (verifiedWidget || badgeWidget || _melowChannelBadge) {
 		totalElementsWidth += st::infoVerifiedCheckPosition.x();
 	}
 	totalElementsWidth += botVerifySkip;
 
-	auto titleLeft = anim::interpolate(
-		titleMostLeft,
-		(width() - totalElementsWidth) / 2,
-		progressCurrent);
+	const auto centeredTitleLeft = (width() - _title->width()) / 2;
+	const auto collapsedTitleLeft = titleMostLeft + (_melowUserBadge ? (MelowBadge::kSize + 6) : 0);
+
+	auto titleLeft = _melowUserBadge
+		? anim::interpolate(centeredTitleLeft, collapsedTitleLeft, progressCurrent)
+		: anim::interpolate(titleMostLeft, (width() - totalElementsWidth) / 2, progressCurrent);
 
 	if (_botVerify) {
 		_botVerify->move(
@@ -1933,30 +1992,29 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 		titleLeft += margins.left() + botVerifySkip;
 	}
 
-	const bool isMelowUser = MelowBadge::IsUser(_peer);
+	_title->moveToLeft(titleLeft, titleTop);
 
-	if (isMelowUser && _badge) {
-		_badge->move(titleLeft, badgeTop, badgeBottom);
-		titleLeft += (badgeWidget ? badgeWidget->width() + 6 : 0);
-		_title->moveToLeft(titleLeft, titleTop);
-		if (_verified) {
-			_verified->move(
-				titleLeft + _title->width(),
-				badgeTop,
-				badgeBottom);
-		}
-	} else {
-		_title->moveToLeft(titleLeft, titleTop);
-		const auto badgeLeft = titleLeft + _title->width();
-		if (_badge) {
-			_badge->move(badgeLeft, badgeTop, badgeBottom);
-		}
-		if (_verified) {
-			_verified->move(
-				badgeLeft + (badgeWidget ? badgeWidget->width() : 0),
-				badgeTop,
-				badgeBottom);
-		}
+	if (_melowUserBadge) {
+		const auto userBadgeLeft = anim::interpolate(
+			centeredTitleLeft - MelowBadge::kSize - 6,
+			titleMostLeft,
+			progressCurrent);
+		_melowUserBadge->moveToLeft(userBadgeLeft, melowBadgeY);
+	}
+
+	auto badgeLeft = titleLeft + _title->width();
+	if (_melowChannelBadge) {
+		_melowChannelBadge->moveToLeft(badgeLeft + 4, melowBadgeY);
+		badgeLeft += MelowBadge::kSize + 6;
+	}
+	if (_badge) {
+		_badge->move(badgeLeft, badgeTop, badgeBottom);
+	}
+	if (_verified) {
+		_verified->move(
+			badgeLeft + (badgeWidget ? badgeWidget->width() : 0),
+			badgeTop,
+			badgeBottom);
 	}
 }
 
