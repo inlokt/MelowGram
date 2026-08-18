@@ -1713,8 +1713,13 @@ void ApplyMelowGramModifiers() {
 	if (!Core::IsAppLaunched()) {
 		return;
 	}
+	const auto blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	const auto gif = Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
 	const auto blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
-	const auto alpha = (blackout * 255) / 100;
+
+	const auto alpha = (blur || gif)
+		? std::clamp((blackout * 255) / 100, 20, 255)
+		: 255;
 
 	style::main_palette::setColor(QLatin1String("windowBg"), st::windowBg->c.red(), st::windowBg->c.green(), st::windowBg->c.blue(), alpha);
 	style::main_palette::setColor(QLatin1String("windowBgOver"), st::windowBgOver->c.red(), st::windowBgOver->c.green(), st::windowBgOver->c.blue(), alpha);

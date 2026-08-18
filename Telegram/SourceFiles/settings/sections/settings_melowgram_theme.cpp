@@ -28,6 +28,8 @@
 #include "window/window_session_controller.h"
 #include "settings/settings_builder.h"
 
+#include "ui/ui_utility.h"
+
 namespace Settings {
 
 MelowGramTheme::MelowGramTheme(QWidget *parent, not_null<Window::SessionController*> controller)
@@ -65,8 +67,9 @@ void MelowGramTheme::setupContent(not_null<Window::SessionController*> controlle
 		return value != Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
 	}) | rpl::on_next([=](bool value) {
 		Core::App().settings().writePref<bool>("MelowGramGifBackground", value);
-		Window::Theme::ApplyMelowGramModifiers();
-		style::NotifyPaletteChanged();
+		Core::App().saveSettingsDelayed();
+		controller->widget()->reloadMelowGramGif();
+		Ui::ForceFullRepaint(controller->widget());
 	}, optionsWrap->lifetime());
 	
 	auto optionsContent = optionsWrap->entity();
@@ -88,6 +91,9 @@ void MelowGramTheme::setupContent(not_null<Window::SessionController*> controlle
 					Core::App().settings().writePref<QString>(
 						"MelowGramGifPath",
 						result.paths.first());
+					Core::App().saveSettingsDelayed();
+					controller->widget()->reloadMelowGramGif();
+					Ui::ForceFullRepaint(controller->widget());
 				}
 			});
 	});
@@ -106,7 +112,9 @@ void MelowGramTheme::setupContent(not_null<Window::SessionController*> controlle
 		return value != Core::App().settings().readPref<bool>("MelowGramBlur", false);
 	}) | rpl::on_next([=](bool value) {
 		Core::App().settings().writePref<bool>("MelowGramBlur", value);
-		controller->window().updateIsActiveFocus();
+		Core::App().saveSettingsDelayed();
+		controller->widget()->updateWindowTransparency();
+		Ui::ForceFullRepaint(controller->widget());
 	}, blurEnabled->lifetime());
 
 	auto block3 = Settings::AddRoundedBlock(content);
@@ -114,7 +122,7 @@ void MelowGramTheme::setupContent(not_null<Window::SessionController*> controlle
 	auto titleLabel = Ui::CreateChild<Ui::FlatLabel>(block3, u"Blackout"_q, st::defaultFlatLabel);
 	block3->add(object_ptr<Ui::FlatLabel>::fromRaw(titleLabel), QMargins(22, 10, 22, 0));
 	
-	int initialValue = Core::App().settings().readPref<int>("MelowGramBlackout", 50);
+	int initialValue = std::clamp(Core::App().settings().readPref<int>("MelowGramBlackout", 50), 15, 100);
 
 	auto slider = Settings::MakeSliderWithLabel(
 		block3,
@@ -127,13 +135,16 @@ void MelowGramTheme::setupContent(not_null<Window::SessionController*> controlle
 	auto sliderWidget = slider.slider;
 	
 	sliderWidget->setChangeProgressCallback([=](float64 value) {
-		const int pct = std::round(value * 100);
+		const int pct = std::clamp(int(std::round(value * 100)), 15, 100);
 		Core::App().settings().writePref<int>(
 			"MelowGramBlackout",
 			pct);
 		sliderLabel->setText(QString::number(pct) + "%");
 		Window::Theme::ApplyMelowGramModifiers();
-		style::NotifyPaletteChanged();
+		Ui::ForceFullRepaint(controller->widget());
+	});
+	sliderWidget->setChangeFinishedCallback([=](float64 value) {
+		Core::App().saveSettingsDelayed();
 	});
 	sliderWidget->setValue(initialValue / 100.0);
 	sliderLabel->setText(QString::number(initialValue) + "%");

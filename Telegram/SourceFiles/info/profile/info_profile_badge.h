@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "base/flags.h"
 #include "base/object_ptr.h"
+#include "ui/effects/animations.h"
 
 namespace style {
 struct InfoPeerBadge;
@@ -74,6 +75,7 @@ public:
 	void setOverrideStyle(const style::InfoPeerBadge *st);
 	[[nodiscard]] rpl::producer<> updated() const;
 	void move(int left, int top, int bottom);
+	void animateMelowRotation();
 
 	[[nodiscard]] Data::CustomEmojiSizeTag sizeTag() const;
 
@@ -93,6 +95,8 @@ private:
 	Fn<void()> _premiumClickCallback;
 	Fn<bool()> _animationPaused;
 	object_ptr<Ui::AbstractButton> _view = { nullptr };
+	Ui::Animations::Simple _melowRotationAnimation;
+	float64 _melowAngle = 0.0;
 	rpl::event_stream<> _updated;
 	rpl::lifetime _lifetime;
 

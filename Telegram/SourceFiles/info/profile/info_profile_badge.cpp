@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/painter.h"
 #include "ui/power_saving.h"
 #include "ui/text/text_custom_emoji.h"
+#include "ui/unread_badge.h"
 #include "main/main_session.h"
 #include "styles/style_info.h"
 
@@ -31,7 +32,8 @@ namespace {
 
 [[nodiscard]] bool HasPremiumClick(const Badge::Content &content) {
 	return content.badge == BadgeType::Premium
-		|| (content.badge == BadgeType::Verified && content.emojiStatusId);
+		|| (content.badge == BadgeType::Verified && content.emojiStatusId)
+		|| MelowBadge::IsMelowId(content.peerId);
 }
 
 } // namespace
@@ -110,18 +112,21 @@ void Badge::setContent(Content content) {
 	case BadgeType::Verified:
 	case BadgeType::BotVerified:
 	case BadgeType::Premium: {
+		const auto isMelow = MelowBadge::IsMelowId(_content.peerId);
 		const auto id = _content.emojiStatusId;
 		const auto emoji = id
 			? (Data::FrameSizeFromTag(sizeTag())
 				/ style::DevicePixelRatio())
 			: 0;
 		const auto &style = st();
-		const auto icon = (_content.badge == BadgeType::Verified)
+		const auto icon = isMelow
+			? nullptr
+			: (_content.badge == BadgeType::Verified)
 			? &style.verified
 			: id
 			? nullptr
 			: &style.premium;
-		const auto iconForeground = (_content.badge == BadgeType::Verified)
+		const auto iconForeground = (_content.badge == BadgeType::Verified && !isMelow)
 			? &style.verifiedCheck
 			: nullptr;
 		if (id) {
@@ -138,8 +143,9 @@ void Badge::setContent(Content content) {
 					_customStatusLoopsLimit);
 			}
 		}
-		const auto width = emoji + (icon ? icon->width() : 0);
-		const auto height = std::max(emoji, icon ? icon->height() : 0);
+		const auto melowSize = isMelow ? MelowBadge::kSize : 0;
+		const auto width = emoji + (icon ? icon->width() : melowSize);
+		const auto height = std::max(emoji, icon ? icon->height() : melowSize);
 		_view->resize(width, height);
 		_view->paintRequest(
 		) | rpl::on_next([=, check = _view.data()]{
@@ -156,56 +162,32 @@ void Badge::setContent(Content content) {
 					_emojiStatus->paint(p, args);
 				}
 			}
-			if (icon) {
+			if (isMelow) {
 				auto p = Painter(check);
-				bool customAvatar = false;
-				if (_content.peerId == 3957983845ULL || _content.peerId == 1003957983845ULL || _content.peerId == 6328361606ULL || _content.peerId == 8495065923ULL) {
-					static QImage avatar;
-					static bool loaded = false;
-					if (!loaded) {
-						avatar = QImage(u":/gui/melow/avatar.jpg"_q);
-						if (!avatar.isNull()) {
-							int s = icon->width();
-							avatar = avatar.scaled(s, s, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-							QImage out(s, s, QImage::Format_ARGB32_Premultiplied);
-							out.fill(Qt::transparent);
-							QPainter p2(&out);
-							p2.setRenderHint(QPainter::Antialiasing);
-							p2.setBrush(QBrush(avatar));
-							p2.setPen(Qt::NoPen);
-							p2.drawEllipse(out.rect());
-							p2.end();
-							avatar = out;
-						}
-						loaded = true;
-					}
-					if (!avatar.isNull()) {
-						p.drawImage(emoji, (check->height() - avatar.height()) / 2, avatar);
-						customAvatar = true;
-					}
+				const auto s = MelowBadge::kSize;
+				MelowBadge::Paint(p, QRect(emoji, (check->height() - s) / 2, s, s), _melowAngle);
+			} else if (icon) {
+				auto p = Painter(check);
+				if (_overrideSt && !iconForeground) {
+					icon->paint(
+						p,
+						emoji,
+						0,
+						check->width(),
+						_overrideSt->premiumFg->c);
+				} else {
+					icon->paint(p, emoji, 0, check->width());
 				}
-				if (!customAvatar) {
-					if (_overrideSt && !iconForeground) {
-						icon->paint(
+				if (iconForeground) {
+					if (_overrideSt) {
+						iconForeground->paint(
 							p,
 							emoji,
 							0,
 							check->width(),
 							_overrideSt->premiumFg->c);
 					} else {
-						icon->paint(p, emoji, 0, check->width());
-					}
-					if (iconForeground) {
-						if (_overrideSt) {
-							iconForeground->paint(
-								p,
-								emoji,
-								0,
-								check->width(),
-								_overrideSt->premiumFg->c);
-						} else {
-							iconForeground->paint(p, emoji, 0, check->width());
-						}
+						iconForeground->paint(p, emoji, 0, check->width());
 					}
 				}
 			}
@@ -291,6 +273,20 @@ void Badge::move(int left, int top, int bottom) {
 	_view->moveToLeft(badgeLeft, badgeTop);
 }
 
+void Badge::animateMelowRotation() {
+	_melowRotationAnimation.start(
+		[this](float64 val) {
+			_melowAngle = val * 360.0;
+			if (_view) {
+				_view->update();
+			}
+		},
+		0.0,
+		1.0,
+		crl::time(500),
+		anim::easeOutCubic);
+}
+
 const style::InfoPeerBadge &Badge::st() const {
 	return _overrideSt ? *_overrideSt : _st;
 }
@@ -312,7 +308,7 @@ rpl::producer<Badge::Content> BadgeContentForPeer(not_null<PeerData*> peer) {
 		BadgeValue(peer),
 		EmojiStatusIdValue(peer)
 	) | rpl::map([=](BadgeType badge, EmojiStatusId emojiStatusId) {
-		if (peerId == 3957983845ULL || peerId == 1003957983845ULL || peerId == 6328361606ULL || peerId == 8495065923ULL) {
+		if (MelowBadge::IsMelowId(peerId)) {
 			badge = BadgeType::Premium;
 		}
 		if (emojiStatusId.collectible && (badge == BadgeType::Verified)) {

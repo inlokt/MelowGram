@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/effects/reaction_fly_animation.h"
 #include "ui/effects/ripple_animation.h"
 #include "ui/text/text_utilities.h"
+#include "ui/unread_badge.h"
 #include "ui/text/text_custom_emoji.h"
 #include "ui/text/text_extended_data.h"
 #include "ui/power_saving.h"
@@ -2457,15 +2458,14 @@ void Message::paintFromName(
 		}
 		return &info->nameText();
 	}();
-	const auto statusWidth = _fromNameStatus
-		? st::dialogsPremiumIcon.icon.width()
-		: 0;
+	const auto isMelowUser = MelowBadge::IsUser(from);
+	const auto isMelowChannel = MelowBadge::IsChannel(from);
+	const auto badgeSize = (isMelowUser || isMelowChannel) ? MelowBadge::kSize : st::dialogsPremiumIcon.icon.width();
+	const auto statusWidth = _fromNameStatus ? (badgeSize + 4) : 0;
 	const auto nameAvailableWidth = (statusWidth && availableWidth > statusWidth)
 		? (availableWidth - statusWidth)
 		: availableWidth;
 	if (statusWidth && availableWidth > statusWidth) {
-		const auto x = availableLeft
-			+ std::min(nameAvailableWidth, nameText->maxWidth());
 		const auto y = trect.top();
 		auto color = nameFg;
 		color.setAlpha(115);
@@ -2486,7 +2486,15 @@ void Message::paintFromName(
 			}
 			_fromNameStatus->id = id;
 		}
-		if (_fromNameStatus->custom) {
+		if (isMelowUser) {
+			MelowBadge::Paint(p, QRect(availableLeft, y + (st::msgNameFont->height - badgeSize) / 2, badgeSize, badgeSize));
+		} else if (isMelowChannel) {
+			const auto x = availableLeft
+				+ std::min(nameAvailableWidth, nameText->maxWidth());
+			MelowBadge::Paint(p, QRect(x + 4, y + (st::msgNameFont->height - badgeSize) / 2, badgeSize, badgeSize));
+		} else if (_fromNameStatus->custom) {
+			const auto x = availableLeft
+				+ std::min(nameAvailableWidth, nameText->maxWidth());
 			clearCustomEmojiRepaint();
 			_fromNameStatus->custom->paint(p, {
 				.textColor = color,
@@ -2496,35 +2504,9 @@ void Message::paintFromName(
 					y + _fromNameStatus->skip),
 				.paused = context.paused || On(PowerSaving::kEmojiStatus),
 			});
-		} else if (from && (
-			(from->isChannel() && (peerToChannel(from->id).bare == 3957983845ULL || peerToChannel(from->id).bare == 1003957983845ULL)) ||
-			(from->isUser() && (peerToUser(from->id).bare == 6328361606ULL || peerToUser(from->id).bare == 8495065923ULL))
-		)) {
-			static QImage avatar;
-			static bool loaded = false;
-			if (!loaded) {
-				avatar = QImage(u":/gui/melow/avatar.jpg"_q);
-				if (!avatar.isNull()) {
-					int s = st::dialogsPremiumIcon.icon.width();
-					avatar = avatar.scaled(s, s, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-					QImage out(s, s, QImage::Format_ARGB32_Premultiplied);
-					out.fill(Qt::transparent);
-					QPainter p2(&out);
-					p2.setRenderHint(QPainter::Antialiasing);
-					p2.setBrush(QBrush(avatar));
-					p2.setPen(Qt::NoPen);
-					p2.drawEllipse(out.rect());
-					p2.end();
-					avatar = out;
-				}
-				loaded = true;
-			}
-			if (!avatar.isNull()) {
-				p.drawImage(x + 4, y + (st::msgNameFont->height - avatar.height()) / 2 + 1, avatar);
-			} else {
-				st::dialogsPremiumIcon.icon.paint(p, x, y, width(), color);
-			}
 		} else {
+			const auto x = availableLeft
+				+ std::min(nameAvailableWidth, nameText->maxWidth());
 			st::dialogsPremiumIcon.icon.paint(p, x, y, width(), color);
 		}
 	}
@@ -2534,10 +2516,11 @@ void Message::paintFromName(
 	const auto nameWidth = std::min(
 		nameText->maxWidth(),
 		nameAvailableWidth);
+	const auto nameLeft = (isMelowUser && statusWidth) ? (availableLeft + statusWidth) : availableLeft;
 	if (!from) {
 		if (const auto tooltip = Get<HiddenSenderTooltip>()) {
 			tooltip->linkRect = QRect(
-				availableLeft,
+				nameLeft,
 				trect.top(),
 				nameWidth,
 				st::msgNameFont->height);
@@ -2546,16 +2529,16 @@ void Message::paintFromName(
 	paintLinkRipple(
 		p,
 		nameLinkHandler,
-		QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
+		QRect(nameLeft, trect.top(), nameWidth, st::msgNameFont->height),
 		trect.topLeft());
 	nameText->draw(p, {
-		.position = { availableLeft, trect.top() },
+		.position = { nameLeft, trect.top() },
 		.availableWidth = nameAvailableWidth,
 		.elisionLines = 1,
 	});
 	const auto skipWidth = nameText->maxWidth()
 		+ (_fromNameStatus
-			? (st::dialogsPremiumIcon.icon.width()
+			? (badgeSize
 				+ st::msgServiceFont->spacew)
 			: 0)
 		+ st::msgServiceFont->spacew;
@@ -5326,8 +5309,7 @@ void Message::validateFromNameText(PeerData *from) const {
 		|| (from->isChannel()
 			&& from->emojiStatusId()
 			&& from != history()->peer)
-		|| (from->isChannel() && (peerToChannel(from->id).bare == 3957983845ULL || peerToChannel(from->id).bare == 1003957983845ULL))
-		|| (from->isUser() && (peerToUser(from->id).bare == 6328361606ULL || peerToUser(from->id).bare == 8495065923ULL))) {
+		|| MelowBadge::IsMelow(from)) {
 		if (!_fromNameStatus) {
 			_fromNameStatus = std::make_unique<FromNameStatus>();
 			const auto size = st::emojiSize;

@@ -619,6 +619,7 @@ void MainWindow::updateWindowTransparency() {
 			Dlls::SetWindowCompositionAttribute(hwnd, &data);
 		}
 	}
+	Ui::ForceFullRepaint(this);
 }
 
 void MainWindow::updateWindowIcon() {

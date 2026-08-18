@@ -677,6 +677,9 @@ void TopBarWidget::paintTopBar(Painter &p) {
 				Window::GifPauseReason::Any),
 		});
 		namewidth -= badgeWidth;
+		if (MelowBadge::IsUser(namePeer) && badgeWidth > 0) {
+			nameleft += badgeWidth;
+		}
 
 		p.setPen(st::dialogsNameFg);
 		_title.draw(p, {

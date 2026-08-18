@@ -90,6 +90,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/fields/input_field.h"
 #include "ui/top_background_gradient.h"
 #include "ui/ui_utility.h"
+#include "ui/unread_badge.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/horizontal_fit_container.h"
 #include "ui/widgets/labels.h"
@@ -420,7 +421,20 @@ TopBar::TopBar(
 			std::move(badgeUpdates),
 			_badge->updated());
 
-		_badge->setPremiumClickCallback([controller, peer = _peer] {
+		_badge->setPremiumClickCallback([controller, peer = _peer, badge = _badge.get()] {
+			if (MelowBadge::IsChannel(peer)) {
+				badge->animateMelowRotation();
+				controller->showToast(Ui::Toast::Config{
+					.text = u"MelowGram является официальным каналом MelowDesktop"_q,
+				});
+				return;
+			} else if (MelowBadge::IsUser(peer)) {
+				badge->animateMelowRotation();
+				controller->showToast(Ui::Toast::Config{
+					.text = peer->name() + u" является официальным разработчиком MelowDesktop"_q,
+				});
+				return;
+			}
 			::Settings::ShowEmojiStatusPremium(controller, peer);
 		});
 	}
@@ -1919,16 +1933,30 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 		titleLeft += margins.left() + botVerifySkip;
 	}
 
-	_title->moveToLeft(titleLeft, titleTop);
-	const auto badgeLeft = titleLeft + _title->width();
-	if (_badge) {
-		_badge->move(badgeLeft, badgeTop, badgeBottom);
-	}
-	if (_verified) {
-		_verified->move(
-			badgeLeft + (badgeWidget ? badgeWidget->width() : 0),
-			badgeTop,
-			badgeBottom);
+	const bool isMelowUser = MelowBadge::IsUser(_peer);
+
+	if (isMelowUser && _badge) {
+		_badge->move(titleLeft, badgeTop, badgeBottom);
+		titleLeft += (badgeWidget ? badgeWidget->width() + st::infoVerifiedCheckPosition.x() : 0);
+		_title->moveToLeft(titleLeft, titleTop);
+		if (_verified) {
+			_verified->move(
+				titleLeft + _title->width(),
+				badgeTop,
+				badgeBottom);
+		}
+	} else {
+		_title->moveToLeft(titleLeft, titleTop);
+		const auto badgeLeft = titleLeft + _title->width();
+		if (_badge) {
+			_badge->move(badgeLeft, badgeTop, badgeBottom);
+		}
+		if (_verified) {
+			_verified->move(
+				badgeLeft + (badgeWidget ? badgeWidget->width() : 0),
+				badgeTop,
+				badgeBottom);
+		}
 	}
 }
 

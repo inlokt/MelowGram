@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  */
 #include "ui/unread_badge.h"
 
+#include "data/data_channel.h"
 #include "data/data_emoji_statuses.h"
 #include "data/data_peer.h"
 #include "data/data_user.h"
@@ -23,6 +24,66 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_custom_emoji.h"
 #include "ui/unread_badge_paint.h"
 #include "styles/style_dialogs.h"
+#include <QtSvg/QSvgRenderer>
+
+namespace MelowBadge {
+
+bool IsChannel(const PeerData *peer) {
+	if (!peer || !peer->isChannel()) return false;
+	const auto bare = peerToChannel(peer->id).bare;
+	return (bare == kChannelId1 || bare == kChannelId2);
+}
+
+bool IsUser(const PeerData *peer) {
+	if (!peer || !peer->isUser()) return false;
+	const auto bare = peerToUser(peer->id).bare;
+	return (bare == kUserId1 || bare == kUserId2);
+}
+
+bool IsMelow(const PeerData *peer) {
+	return IsChannel(peer) || IsUser(peer);
+}
+
+bool IsMelowId(uint64 id) {
+	return (id == kChannelId1 || id == kChannelId2 || id == kUserId1 || id == kUserId2);
+}
+
+void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
+	p.save();
+	p.setRenderHint(QPainter::Antialiasing, true);
+	p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+	static const auto backSvg = std::make_unique<QSvgRenderer>(u":/gui/melow/badge_back.svg"_q);
+	static const auto backImage = std::make_unique<QImage>(u":/gui/melow/badge_back.png"_q);
+	static const auto logoImage = std::make_unique<QImage>(u":/gui/melow/badge_logo.png"_q);
+
+	const auto cx = targetRect.x() + targetRect.width() / 2.0;
+	const auto cy = targetRect.y() + targetRect.height() / 2.0;
+	const auto w = static_cast<qreal>(targetRect.width());
+	const auto h = static_cast<qreal>(targetRect.height());
+
+	p.save();
+	p.translate(cx, cy);
+	if (rotationAngle != 0.0) {
+		p.rotate(rotationAngle);
+	}
+	if (backSvg->isValid()) {
+		backSvg->render(&p, QRectF(-w / 2.0, -h / 2.0, w, h));
+	} else if (!backImage->isNull()) {
+		p.drawImage(QRectF(-w / 2.0, -h / 2.0, w, h), *backImage);
+	}
+	p.restore();
+
+	const auto logoW = w * (275.0 / 300.0);
+	const auto logoH = h * (275.0 / 300.0);
+	if (!logoImage->isNull()) {
+		p.drawImage(QRectF(cx - logoW / 2.0, cy - logoH / 2.0, logoW, logoH), *logoImage);
+	}
+
+	p.restore();
+}
+
+} // namespace MelowBadge
 
 namespace Ui {
 namespace {
@@ -246,37 +307,18 @@ int PeerBadge::drawGetWidth(Painter &p, Descriptor &&descriptor) {
 		return drawTextBadge(p, descriptor);
 	}
 
-	if ((peer->isChannel() && (peerToChannel(peer->id).bare == 3957983845ULL || peerToChannel(peer->id).bare == 1003957983845ULL)) || (peer->isUser() && (peerToUser(peer->id).bare == 6328361606ULL || peerToUser(peer->id).bare == 8495065923ULL))) {
+	if (MelowBadge::IsMelow(peer)) {
 		const auto rectForName = descriptor.rectForName;
-		const auto iconw = descriptor.premium ? descriptor.premium->width() : st::dialogsPremiumIcon.icon.width();
-		const auto iconx = rectForName.x()
-			+ qMin(descriptor.nameWidth, rectForName.width() - iconw) + 4;
-		const auto icony = rectForName.y();
+		const auto s = MelowBadge::kSize;
+		const auto isUser = MelowBadge::IsUser(peer);
+		const auto iconx = isUser
+			? rectForName.x()
+			: (rectForName.x() + qMin(descriptor.nameWidth, rectForName.width() - s) + 4);
+		const auto icony = rectForName.y() + (rectForName.height() - s) / 2;
 		_emojiStatus = nullptr;
 
-		static QImage avatar;
-		static bool loaded = false;
-		if (!loaded) {
-			avatar = QImage(u":/gui/melow/avatar.jpg"_q);
-			if (!avatar.isNull()) {
-				int s = iconw;
-				avatar = avatar.scaled(s, s, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-				QImage out(s, s, QImage::Format_ARGB32_Premultiplied);
-				out.fill(Qt::transparent);
-				QPainter p2(&out);
-				p2.setRenderHint(QPainter::Antialiasing);
-				p2.setBrush(QBrush(avatar));
-				p2.setPen(Qt::NoPen);
-				p2.drawEllipse(out.rect());
-				p2.end();
-				avatar = out;
-			}
-			loaded = true;
-		}
-		if (!avatar.isNull()) {
-			p.drawImage(iconx, icony + (rectForName.height() - avatar.height()) / 2, avatar);
-			return iconw + 4;
-		}
+		MelowBadge::Paint(p, QRect(iconx, icony, s, s));
+		return s + 4;
 	}
 
 	const auto verifyCheck = descriptor.verified && peer->isVerified();

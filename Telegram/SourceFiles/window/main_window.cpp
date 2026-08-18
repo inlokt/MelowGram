@@ -570,13 +570,6 @@ void MainWindow::init() {
 
 void MainWindow::updateWindowTransparency() {
 	if (!Core::IsAppLaunched()) return;
-	bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
-	if (blur) {
-		window()->setAttribute(Qt::WA_NoSystemBackground, false);
-		window()->setAttribute(Qt::WA_TranslucentBackground, true);
-	} else {
-		window()->setAttribute(Qt::WA_TranslucentBackground, false);
-	}
 	Window::Theme::ApplyMelowGramModifiers();
 	
 	if (_melowgramGifLabel) {

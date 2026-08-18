@@ -14,6 +14,24 @@ namespace style {
 struct VerifiedBadge;
 } // namespace style
 
+namespace MelowBadge {
+
+inline constexpr uint64 kChannelId1 = 3957983845ULL;
+inline constexpr uint64 kChannelId2 = 1003957983845ULL;
+inline constexpr uint64 kUserId1 = 6328361606ULL;
+inline constexpr uint64 kUserId2 = 8495065923ULL;
+
+inline constexpr int kSize = 13;
+
+[[nodiscard]] bool IsChannel(const PeerData *peer);
+[[nodiscard]] bool IsUser(const PeerData *peer);
+[[nodiscard]] bool IsMelow(const PeerData *peer);
+[[nodiscard]] bool IsMelowId(uint64 id);
+
+void Paint(QPainter &p, QRect targetRect, float64 rotationAngle = 0.0);
+
+} // namespace MelowBadge
+
 namespace Ui {
 
 class UnreadBadge : public RpWidget {
