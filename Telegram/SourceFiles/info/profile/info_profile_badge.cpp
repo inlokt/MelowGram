@@ -266,8 +266,11 @@ void Badge::move(int left, int top, int bottom) {
 	const auto fake = !_emojiStatus && !star;
 	const auto skip = fake ? 0 : style.position.x();
 	const auto badgeLeft = left + skip;
+	const auto isMelow = MelowBadge::IsMelowId(_content.peerId);
 	const auto badgeTop = top
-		+ (star
+		+ (isMelow
+			? (style.position.y() + 2)
+			: star
 			? style.position.y()
 			: (bottom - top - _view->height()) / 2);
 	_view->moveToLeft(badgeLeft, badgeTop);

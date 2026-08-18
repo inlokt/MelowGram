@@ -21,7 +21,7 @@ inline constexpr uint64 kChannelId2 = 1003957983845ULL;
 inline constexpr uint64 kUserId1 = 6328361606ULL;
 inline constexpr uint64 kUserId2 = 8495065923ULL;
 
-inline constexpr int kSize = 13;
+inline constexpr int kSize = 16;
 
 [[nodiscard]] bool IsChannel(const PeerData *peer);
 [[nodiscard]] bool IsUser(const PeerData *peer);

@@ -74,10 +74,10 @@ void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
 	}
 	p.restore();
 
-	const auto logoW = w * (275.0 / 300.0);
-	const auto logoH = h * (275.0 / 300.0);
 	if (!logoImage->isNull()) {
-		p.drawImage(QRectF(cx - logoW / 2.0, cy - logoH / 2.0, logoW, logoH), *logoImage);
+		const auto logoW = w * 0.58;
+		const auto logoH = logoW * (118.0 / 134.0);
+		p.drawImage(QRectF(cx - logoW / 2.0, cy - logoH / 2.0 + 0.3, logoW, logoH), *logoImage);
 	}
 
 	p.restore();
@@ -313,12 +313,12 @@ int PeerBadge::drawGetWidth(Painter &p, Descriptor &&descriptor) {
 		const auto isUser = MelowBadge::IsUser(peer);
 		const auto iconx = isUser
 			? rectForName.x()
-			: (rectForName.x() + qMin(descriptor.nameWidth, rectForName.width() - s) + 4);
-		const auto icony = rectForName.y() + (rectForName.height() - s) / 2;
+			: (rectForName.x() + qMin(descriptor.nameWidth, rectForName.width() - s) + 6);
+		const auto icony = rectForName.y() + (rectForName.height() - s) / 2 + 1;
 		_emojiStatus = nullptr;
 
 		MelowBadge::Paint(p, QRect(iconx, icony, s, s));
-		return s + 4;
+		return s + 6;
 	}
 
 	const auto verifyCheck = descriptor.verified && peer->isVerified();

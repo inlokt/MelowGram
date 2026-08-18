@@ -1937,7 +1937,7 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 
 	if (isMelowUser && _badge) {
 		_badge->move(titleLeft, badgeTop, badgeBottom);
-		titleLeft += (badgeWidget ? badgeWidget->width() + st::infoVerifiedCheckPosition.x() : 0);
+		titleLeft += (badgeWidget ? badgeWidget->width() + 6 : 0);
 		_title->moveToLeft(titleLeft, titleTop);
 		if (_verified) {
 			_verified->move(

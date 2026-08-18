@@ -2461,12 +2461,13 @@ void Message::paintFromName(
 	const auto isMelowUser = MelowBadge::IsUser(from);
 	const auto isMelowChannel = MelowBadge::IsChannel(from);
 	const auto badgeSize = (isMelowUser || isMelowChannel) ? MelowBadge::kSize : st::dialogsPremiumIcon.icon.width();
-	const auto statusWidth = _fromNameStatus ? (badgeSize + 4) : 0;
+	const auto statusWidth = _fromNameStatus ? (badgeSize + 6) : 0;
 	const auto nameAvailableWidth = (statusWidth && availableWidth > statusWidth)
 		? (availableWidth - statusWidth)
 		: availableWidth;
 	if (statusWidth && availableWidth > statusWidth) {
 		const auto y = trect.top();
+		const auto icony = y + (st::msgNameFont->height - badgeSize) / 2 + 1;
 		auto color = nameFg;
 		color.setAlpha(115);
 		const auto id = from ? from->emojiStatusId() : EmojiStatusId();
@@ -2487,11 +2488,11 @@ void Message::paintFromName(
 			_fromNameStatus->id = id;
 		}
 		if (isMelowUser) {
-			MelowBadge::Paint(p, QRect(availableLeft, y + (st::msgNameFont->height - badgeSize) / 2, badgeSize, badgeSize));
+			MelowBadge::Paint(p, QRect(availableLeft, icony, badgeSize, badgeSize));
 		} else if (isMelowChannel) {
 			const auto x = availableLeft
 				+ std::min(nameAvailableWidth, nameText->maxWidth());
-			MelowBadge::Paint(p, QRect(x + 4, y + (st::msgNameFont->height - badgeSize) / 2, badgeSize, badgeSize));
+			MelowBadge::Paint(p, QRect(x + 5, icony, badgeSize, badgeSize));
 		} else if (_fromNameStatus->custom) {
 			const auto x = availableLeft
 				+ std::min(nameAvailableWidth, nameText->maxWidth());
