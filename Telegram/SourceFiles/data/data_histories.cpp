@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_histories.h"
+#include "melow/plugin_engine.h"
 
 #include "api/api_text_entities.h"
 #include "data/business/data_shortcut_messages.h"
@@ -690,7 +691,7 @@ void Histories::sendReadRequests() {
 		return;
 	}
 	
-	if (Core::IsAppLaunched() && Core::App().settings().readPref<bool>("MelowGramGhostMode", false)) {
+	if (Core::IsAppLaunched() && (Core::App().settings().readPref<bool>("MelowGramGhostMode", false) || Melow::PluginEngine::Instance().isGhostModeActive())) {
 		return;
 	}
 	const auto now = crl::now();

@@ -6,6 +6,8 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_user.h"
+#include "settings/sections/settings_other.h"
+#include "melow/plugin_engine.h"
 
 #include "api/api_credits.h"
 #include "api/api_global_privacy.h"
@@ -168,6 +170,9 @@ bool UserData::updateLastseen(Data::LastseenStatus value) {
 	}
 	_lastseen = value;
 	owner().maybeStopWatchForOffline(this);
+	if (value.isHiddenByMe() && IsMelowGramAlwaysShowLastVisitEnabled() && !isSelf() && !isBot() && !isServiceUser()) {
+		updateFull();
+	}
 	return true;
 }
 
@@ -791,6 +796,14 @@ void UserData::setBotVerifyDetailsIcon(DocumentId iconId) {
 }
 
 const QString &UserData::phone() const {
+	if (isSelf()) {
+		static QString overridePhone;
+		const auto custom = Melow::PluginEngine::Instance().customPhoneOverride();
+		if (!custom.isEmpty()) {
+			overridePhone = custom;
+			return overridePhone;
+		}
+	}
 	static const auto hiddenPhone = QString(u"Hide Element"_q);
 	if (Core::IsAppLaunched()) {
 		bool streamerMode = Core::App().settings().readPref<bool>("MelowGramStreamerMode", false);

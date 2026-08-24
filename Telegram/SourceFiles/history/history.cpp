@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history.h"
+#include "melow/plugin_engine.h"
 
 #include "history/view/history_view_element.h"
 #include "history/view/history_view_item_preview.h"
@@ -651,6 +652,9 @@ not_null<HistoryItem*> History::addNewMessage(
 	if (newMessage && item->isHistoryEntry()) {
 		applyMessageChanges(item, message);
 	}
+	if (newMessage) {
+		Melow::PluginEngine::Instance().handleIncomingMessage(item);
+	}
 	return addNewItem(item, newMessage);
 }
 
@@ -673,6 +677,11 @@ void History::destroyMessage(not_null<HistoryItem*> item) {
 	if (!item->out() && Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)) {
 		if (!item->isMelowgramDeleted()) {
 			item->markMelowgramDeleted();
+			uint64_t mId = (uint32_t)item->id.bare;
+			if (peer->isChannel()) {
+				mId = (uint64_t(peerToChannel(peer->id).bare) << 32) | mId;
+			}
+			MelowGramMarkMessageDeleted(mId);
 			item->history()->owner().requestItemViewRefresh(item);
 		}
 		return;

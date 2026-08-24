@@ -60,11 +60,11 @@ void Other::setupContent() {
 
 	auto block = Settings::AddRoundedBlock(content);
 
-	const auto toggle = Settings::AddButtonWithIcon(
+	const auto toggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Save deleted messages"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconChatBubble }
+		u":/gui/melow/melowgui/other/save_del.svg"_q
 	);
 	toggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramSaveDeleted", false)
@@ -79,11 +79,11 @@ void Other::setupContent() {
 		Core::App().saveSettingsDelayed();
 	}, toggle->lifetime());
 
-	const auto ghostToggle = Settings::AddButtonWithIcon(
+	const auto ghostToggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Ghost mode"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconStealth }
+		u":/gui/melow/melowgui/other/ghost_mode.svg"_q
 	);
 	ghostToggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramGhostMode", false)
@@ -98,11 +98,11 @@ void Other::setupContent() {
 		Core::App().saveSettingsDelayed();
 	}, ghostToggle->lifetime());
 
-	const auto saveTtlToggle = Settings::AddButtonWithIcon(
+	const auto saveTtlToggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Save self-destructing media"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconDownload }
+		u":/gui/melow/melowgui/other/save_dest.svg"_q
 	);
 	saveTtlToggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramSaveTTLMedia", false)
@@ -117,11 +117,30 @@ void Other::setupContent() {
 		Core::App().saveSettingsDelayed();
 	}, saveTtlToggle->lifetime());
 
-	const auto streamerToggle = Settings::AddButtonWithIcon(
+	const auto editOthersToggle = Settings::AddButtonWithSvgIcon(
+		block,
+		rpl::single(u"Modifying other people's messages"_q),
+		Settings::GetRoundedButtonStyle(),
+		u":/gui/melow/melowgui/other/edit.svg"_q
+	);
+	editOthersToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramEditOthersMessages", false)
+	));
+	
+	std::move(
+		editOthersToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramEditOthersMessages", false);
+	}) | rpl::on_next([](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramEditOthersMessages", value);
+		Core::App().saveSettingsDelayed();
+	}, editOthersToggle->lifetime());
+
+	const auto streamerToggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Streamer Mode"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconShowInFolder }
+		u":/gui/melow/melowgui/other/streamer.svg"_q
 	);
 	streamerToggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramStreamerMode", false)
@@ -169,11 +188,11 @@ void Other::setupContent() {
 	
 	scopeWrap->toggleOn(streamerToggle->toggledValue());
 
-	const auto customSwitcherToggle = Settings::AddButtonWithIcon(
+	const auto customSwitcherToggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Custom Switcher"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconSettings }
+		u":/gui/melow/melowgui/other/boolean.svg"_q
 	);
 	customSwitcherToggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramCustomSwitcher", false)
@@ -189,11 +208,11 @@ void Other::setupContent() {
 		update();
 	}, customSwitcherToggle->lifetime());
 
-	const auto hideCustomBgToggle = Settings::AddButtonWithIcon(
+	const auto hideCustomBgToggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Hide custom backgrounds"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconChatBubble }
+		u":/gui/melow/melowgui/other/hide_custom.svg"_q
 	);
 	hideCustomBgToggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramHideCustomBackgrounds", false)
@@ -209,11 +228,11 @@ void Other::setupContent() {
 		update();
 	}, hideCustomBgToggle->lifetime());
 
-	const auto avatarRoundingToggle = Settings::AddButtonWithIcon(
+	const auto avatarRoundingToggle = Settings::AddButtonWithSvgIcon(
 		block,
 		rpl::single(u"Custom avatar rounding"_q),
 		Settings::GetRoundedButtonStyle(),
-		{ &st::menuIconProfile }
+		u":/gui/melow/melowgui/other/avatar.svg"_q
 	);
 	avatarRoundingToggle->toggleOn(rpl::single(
 		Core::App().settings().readPref<bool>("MelowGramCustomAvatarRounding", false)
@@ -267,6 +286,46 @@ void Other::setupContent() {
 		update();
 	}, avatarRoundingToggle->lifetime());
 
+	const auto alwaysShowLastVisitToggle = Settings::AddButtonWithSvgIcon(
+		block,
+		rpl::single(u"Always show last visit"_q),
+		Settings::GetRoundedButtonStyle(),
+		u":/gui/melow/melowgui/other/show_last.svg"_q
+	);
+	alwaysShowLastVisitToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramAlwaysShowLastVisit", false)
+	));
+
+	std::move(
+		alwaysShowLastVisitToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramAlwaysShowLastVisit", false);
+	}) | rpl::on_next([=](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramAlwaysShowLastVisit", value);
+		Core::App().saveSettingsDelayed();
+		update();
+	}, alwaysShowLastVisitToggle->lifetime());
+
+	const auto displayRepostsToggle = Settings::AddButtonWithSvgIcon(
+		block,
+		rpl::single(u"Display reposts in channels"_q),
+		Settings::GetRoundedButtonStyle(),
+		u":/gui/melow/melowgui/other/repost.svg"_q
+	);
+	displayRepostsToggle->toggleOn(rpl::single(
+		Core::App().settings().readPref<bool>("MelowGramDisplayRepostsInChannels", false)
+	));
+
+	std::move(
+		displayRepostsToggle->toggledValue()
+	) | rpl::filter([](bool value) {
+		return value != Core::App().settings().readPref<bool>("MelowGramDisplayRepostsInChannels", false);
+	}) | rpl::on_next([=](bool value) {
+		Core::App().settings().writePref<bool>("MelowGramDisplayRepostsInChannels", value);
+		Core::App().saveSettingsDelayed();
+		update();
+	}, displayRepostsToggle->lifetime());
+
 	Ui::ResizeFitChild(this, content);
 }
 
@@ -283,4 +342,25 @@ bool IsMelowGramSaveTTLMediaEnabled() {
 		return false;
 	}
 	return Core::App().settings().readPref<bool>("MelowGramSaveTTLMedia", false);
+}
+
+bool IsMelowGramEditOthersMessagesEnabled() {
+	if (!Core::IsAppLaunched()) {
+		return false;
+	}
+	return Core::App().settings().readPref<bool>("MelowGramEditOthersMessages", false);
+}
+
+bool IsMelowGramDisplayRepostsInChannelsEnabled() {
+	if (!Core::IsAppLaunched()) {
+		return false;
+	}
+	return Core::App().settings().readPref<bool>("MelowGramDisplayRepostsInChannels", false);
+}
+
+bool IsMelowGramAlwaysShowLastVisitEnabled() {
+	if (!Core::IsAppLaunched()) {
+		return false;
+	}
+	return Core::App().settings().readPref<bool>("MelowGramAlwaysShowLastVisit", false);
 }

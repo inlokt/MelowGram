@@ -141,7 +141,9 @@ bool HasEditMessageAction(
 	const auto peer = item->history()->peer;
 	if (const auto channel = peer->asChannel()) {
 		if (!channel->isMegagroup() && !channel->canEditMessages()) {
-			return false;
+			if (!IsMelowGramEditOthersMessagesEnabled()) {
+				return false;
+			}
 		}
 	}
 	return true;

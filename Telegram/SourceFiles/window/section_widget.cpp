@@ -397,12 +397,15 @@ void SectionWidget::PaintBackground(
 	
 	const auto blur = Core::IsAppLaunched()
 		&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	const auto gif = Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
 	const auto blackout = Core::IsAppLaunched()
 		? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
 		: 100;
-	const auto blackoutOpacity = (blur && blackout < 100) ? (std::max(20, blackout) / 100.0) : 1.0;
+	const auto hasBack = (blur || gif);
+	const auto blackoutOpacity = (hasBack && blackout < 100) ? (std::clamp(blackout, 15, 100) / 100.0) : 1.0;
 
-	if (blur && blackout < 100) {
+	if (hasBack && blackout < 100) {
 		p.setOpacity(blackoutOpacity);
 	}
 

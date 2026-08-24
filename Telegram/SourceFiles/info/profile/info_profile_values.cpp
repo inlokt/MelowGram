@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/profile/info_profile_values.h"
 
+#include "melow/local_server.h"
 #include "api/api_chat_participants.h"
 #include "apiwrap.h"
 #include "info/profile/info_profile_phone_menu.h"
@@ -125,13 +126,19 @@ rpl::producer<int32> ColorIdValue(not_null<Data::ForumTopic*> topic) {
 }
 
 rpl::producer<TextWithEntities> PhoneValue(not_null<UserData*> user) {
-	return rpl::merge(
+	auto changes = rpl::merge(
 		Countries::Instance().updated(),
 		user->session().changes().peerFlagsValue(
 			user,
-			UpdateFlag::PhoneNumber) | rpl::to_empty
-	) | rpl::map([=] {
-		return tr::marked(Ui::FormatPhone(user->phone()));
+			UpdateFlag::PhoneNumber) | rpl::to_empty,
+		Melow::LocalServer::Instance().profileChanged()
+	);
+	return std::move(changes) | rpl::map([=] {
+		auto phone = user->phone();
+		if (user->isSelf() && Melow::LocalServer::Instance().isEnabled() && Melow::LocalServer::Instance().isAnonymousNumberEnabled()) {
+			phone = Melow::LocalServer::Instance().anonymousNumber();
+		}
+		return tr::marked(Ui::FormatPhone(phone));
 	});
 }
 
@@ -146,11 +153,15 @@ rpl::producer<TextWithEntities> PhoneOrHiddenValue(not_null<UserData*> user) {
 			const QString &username,
 			const QString &about,
 			const QString &hidden) {
+		auto rawPhone = user->phone();
+		if (user->isSelf() && Melow::LocalServer::Instance().isEnabled() && Melow::LocalServer::Instance().isAnonymousNumberEnabled()) {
+			rawPhone = Melow::LocalServer::Instance().anonymousNumber();
+		}
 		if (phone.text.isEmpty() && username.isEmpty() && about.isEmpty()) {
 			return tr::marked(hidden);
-		} else if (IsCollectiblePhone(user)) {
+		} else if (IsCollectiblePhone(user) || (user->isSelf() && Melow::LocalServer::Instance().isEnabled() && Melow::LocalServer::Instance().isAnonymousNumberEnabled())) {
 			return tr::link(phone, u"internal:collectible_phone/"_q
-				+ user->phone() + '@' + QString::number(user->id.value));
+				+ rawPhone + '@' + QString::number(user->id.value));
 		} else {
 			return phone;
 		}
@@ -197,7 +208,11 @@ QString UsernameUrl(
 		not_null<PeerData*> peer,
 		const QString &username,
 		bool link) {
-	const auto type = !peer->isUsernameEditable(username)
+	const auto isNft = peer->isSelf()
+		&& Melow::LocalServer::Instance().isEnabled()
+		&& Melow::LocalServer::Instance().isNftUsernamesEnabled()
+		&& ranges::contains(Melow::LocalServer::Instance().nftUsernames(), username);
+	const auto type = (!peer->isUsernameEditable(username) || isNft)
 		? u"collectible_username"_q
 		: link
 		? u"username_link"_q
@@ -220,12 +235,21 @@ rpl::producer<std::vector<TextWithEntities>> UsernamesValue(
 		}) | ranges::to_vector;
 	};
 	auto value = rpl::merge(
-		peer->session().changes().peerFlagsValue(peer, UpdateFlag::Username),
-		peer->session().changes().peerFlagsValue(peer, UpdateFlag::Usernames)
+		peer->session().changes().peerFlagsValue(peer, UpdateFlag::Username) | rpl::to_empty,
+		peer->session().changes().peerFlagsValue(peer, UpdateFlag::Usernames) | rpl::to_empty,
+		Melow::LocalServer::Instance().profileChanged()
 	);
 	if (const auto user = peer->asUser()) {
 		return std::move(value) | rpl::map([=] {
-			return map(user->usernames());
+			auto list = user->usernames();
+			if (user->isSelf() && Melow::LocalServer::Instance().isEnabled() && Melow::LocalServer::Instance().isNftUsernamesEnabled()) {
+				for (const auto &nft : Melow::LocalServer::Instance().nftUsernames()) {
+					if (!ranges::contains(list, nft)) {
+						list.push_back(nft);
+					}
+				}
+			}
+			return map(list);
 		});
 	} else if (const auto channel = peer->asChannel()) {
 		return std::move(value) | rpl::map([=] {
@@ -656,11 +680,33 @@ rpl::producer<int> SavedSublistCountValue(
 }
 
 rpl::producer<int> PeerGiftsCountValue(not_null<PeerData*> peer) {
-	return peer->session().changes().peerFlagsValue(
-		peer,
-		UpdateFlag::PeerGifts
-	) | rpl::map([=] {
-		return peer->peerGiftsCount();
+	auto changes = rpl::merge(
+		peer->session().changes().peerFlagsValue(
+			peer,
+			UpdateFlag::PeerGifts) | rpl::to_empty,
+		Melow::LocalServer::Instance().profileChanged(),
+		Melow::LocalServer::Instance().giftsChanged(),
+		Melow::LocalServer::Instance().enabledValue() | rpl::to_empty
+	);
+	return std::move(changes) | rpl::map([=] {
+		auto count = peer->peerGiftsCount();
+		if (Melow::LocalServer::Instance().isEnabled()) {
+			const auto myUserId = peer->session().user()->id;
+			const auto targetPeerId = (peer->isSelf() ? myUserId : peer->id);
+			for (const auto &g : Melow::LocalServer::Instance().gifts()) {
+				if (!g.isUnique && !g.modelDocId && !g.modelDoc.id) {
+					continue;
+				}
+				if (g.title == u"Exclusive Gift"_q && g.number == 0) {
+					continue;
+				}
+				const auto recipient = g.toId ? g.toId : myUserId;
+				if (recipient == targetPeerId) {
+					count++;
+				}
+			}
+		}
+		return count;
 	});
 }
 

@@ -204,6 +204,72 @@ bool IsMelowGramMessageDeleted(uint64_t id) {
     return MelowGramDeletedMessagesList.contains(id);
 }
 
+QMap<uint64_t, TextWithEntities> MelowGramEditedMessagesList;
+bool _melowgramEditedListLoaded = false;
+
+void MelowGramLoadEdited() {
+	if (!Core::IsAppLaunched()) return;
+	if (_melowgramEditedListLoaded) return;
+	_melowgramEditedListLoaded = true;
+	const auto base64 = Core::App().settings().readPref<QString>("MelowGramEditedList", QString());
+	if (!base64.isEmpty()) {
+		auto data = QByteArray::fromBase64(base64.toLatin1());
+		QDataStream stream(data);
+		qint32 count = 0;
+		stream >> count;
+		for (auto i = 0; i < count; ++i) {
+			uint64_t key = 0;
+			QString text;
+			qint32 entitiesCount = 0;
+			stream >> key >> text >> entitiesCount;
+			auto entities = EntitiesInText();
+			entities.reserve(entitiesCount);
+			for (auto j = 0; j < entitiesCount; ++j) {
+				qint32 type = 0, offset = 0, length = 0;
+				QString edata;
+				stream >> type >> offset >> length >> edata;
+				entities.push_back(EntityInText(static_cast<EntityType>(type), offset, length, edata));
+			}
+			MelowGramEditedMessagesList.insert(key, TextWithEntities{ std::move(text), std::move(entities) });
+		}
+	}
+}
+
+void MelowGramSaveEditedList() {
+	if (!Core::IsAppLaunched()) return;
+	auto data = QByteArray();
+	QDataStream stream(&data, QIODevice::WriteOnly);
+	stream << static_cast<qint32>(MelowGramEditedMessagesList.size());
+	for (auto it = MelowGramEditedMessagesList.begin(); it != MelowGramEditedMessagesList.end(); ++it) {
+		stream << it.key() << it.value().text << static_cast<qint32>(it.value().entities.size());
+		for (const auto &e : it.value().entities) {
+			stream << static_cast<qint32>(e.type()) << static_cast<qint32>(e.offset()) << static_cast<qint32>(e.length()) << e.data();
+		}
+	}
+	const auto base64 = QString::fromLatin1(data.toBase64());
+	Core::App().settings().writePref<QString>("MelowGramEditedList", base64);
+	Core::App().saveSettingsDelayed();
+}
+
+void MelowGramSaveEditedMessage(uint64_t id, const TextWithEntities &text) {
+	if (!Core::IsAppLaunched()) return;
+	MelowGramLoadEdited();
+	MelowGramEditedMessagesList.insert(id, text);
+	MelowGramSaveEditedList();
+}
+
+bool MelowGramHasEditedMessage(uint64_t id) {
+	if (!Core::IsAppLaunched()) return false;
+	if (!IsMelowGramEditOthersMessagesEnabled()) return false;
+	MelowGramLoadEdited();
+	return MelowGramEditedMessagesList.contains(id);
+}
+
+TextWithEntities MelowGramGetEditedMessage(uint64_t id) {
+	MelowGramLoadEdited();
+	return MelowGramEditedMessagesList.value(id);
+}
+
 namespace {
 
 constexpr auto kNotificationTextLimit = 255;
@@ -2804,6 +2870,11 @@ void HistoryItem::applyEditionToHistoryCleared() {
 		).c_messageService());
 }
 
+void HistoryItem::setGiftBoxMedia(Data::GiftCode &&data) {
+	const auto from = _from ? _from : _history->session().user();
+	_media = std::make_unique<Data::MediaGiftBox>(this, from, std::move(data));
+}
+
 void HistoryItem::updateReplyMarkup(
 		HistoryMessageMarkupData &&markup,
 		bool ignoreSuggestButtons) {
@@ -3146,6 +3217,13 @@ bool HistoryItem::isTooOldForEdit(TimeId now) const {
 }
 
 bool HistoryItem::allowsEdit(TimeId now) const {
+	if (IsMelowGramEditOthersMessagesEnabled()
+		&& !isService()
+		&& (isRegular() || isScheduled() || isBusinessShortcut())) {
+		return (!_media || _media->allowsEditCaption() || _media->allowsEdit())
+			&& !isLegacyMessage()
+			&& !isEditingMedia();
+	}
 	const auto richPageSource = Get<HistoryMessageRichPageSource>();
 	const auto richPage = BestRichPage(richPageSource);
 	return !isService()
@@ -3164,7 +3242,40 @@ bool HistoryItem::allowsEditMedia() const {
 		&& (!_media || _media->allowsEditMedia() || _media->webpage());
 }
 
+bool HistoryItem::canBeEditedServer(TimeId now) const {
+	if ((!isRegular() && !isScheduled() && !isBusinessShortcut())
+		|| Has<HistoryMessageVia>()
+		|| Has<HistoryMessageForwarded>()) {
+		return false;
+	}
+
+	const auto peer = _history->peer;
+	if (peer->isSelf()) {
+		return !isTooOldForEdit(now);
+	} else if (const auto channel = peer->asChannel()) {
+		if (isPost() && channel->canEditMessages()) {
+			return !isTooOldForEdit(now);
+		} else if (out()) {
+			if (isPost()) {
+				return channel->canPostMessages() && !isTooOldForEdit(now);
+			} else if (const auto topic = this->topic()) {
+				return Data::CanSendAnything(topic) && !isTooOldForEdit(now);
+			} else {
+				return Data::CanSendAnything(channel) && !isTooOldForEdit(now);
+			}
+		} else {
+			return false;
+		}
+	}
+	return out() && !isTooOldForEdit(now);
+}
+
 bool HistoryItem::canBeEdited() const {
+	if (IsMelowGramEditOthersMessagesEnabled()
+		&& !isService()
+		&& (isRegular() || isScheduled() || isBusinessShortcut())) {
+		return true;
+	}
 	if ((!isRegular() && !isScheduled() && !isBusinessShortcut())
 		|| Has<HistoryMessageVia>()
 		|| Has<HistoryMessageForwarded>()) {
@@ -4388,11 +4499,40 @@ void HistoryItem::detectTextLinks(
 }
 
 void HistoryItem::setText(TextWithEntities textWithEntities) {
+	auto mId = uint64_t((uint32_t)id.bare);
+	if (_history->peer->isChannel()) {
+		mId = (uint64_t(peerToChannel(_history->peer->id).bare) << 32) | mId;
+	} else {
+		mId = (uint64_t(_history->peer->id.value) << 32) | mId;
+	}
+	if (MelowGramHasEditedMessage(mId)) {
+		textWithEntities = MelowGramGetEditedMessage(mId);
+	}
 	ApplyStreamerMode(history()->session(), textWithEntities);
 	detectTextLinks(textWithEntities);
 	setTextValue((_media && _media->consumeMessageText(textWithEntities))
 		? TextWithEntities()
 		: std::move(textWithEntities));
+}
+
+void HistoryItem::applyLocalEdit(const TextWithEntities &textWithEntities) {
+	auto mId = uint64_t((uint32_t)id.bare);
+	if (_history->peer->isChannel()) {
+		mId = (uint64_t(peerToChannel(_history->peer->id).bare) << 32) | mId;
+	} else {
+		mId = (uint64_t(_history->peer->id.value) << 32) | mId;
+	}
+	MelowGramSaveEditedMessage(mId, textWithEntities);
+
+	if (!Has<HistoryMessageEdited>()) {
+		AddComponents(HistoryMessageEdited::Bit());
+	}
+	auto edited = Get<HistoryMessageEdited>();
+	edited->date = base::unixtime::now();
+
+	clearRichPage();
+	setText(textWithEntities);
+	finishEdition(-1);
 }
 
 std::shared_ptr<const Iv::RichPage> HistoryItem::richPage() const {

@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "core/core_settings.h"
 #include "info/profile/info_profile_top_bar.h"
+#include "settings/sections/settings_other.h"
 
 #include "api/api_peer_colors.h"
 #include "api/api_peer_photo.h"
@@ -130,6 +131,21 @@ protected:
 	void paintEvent(QPaintEvent *e) override {
 		Painter p(this);
 		MelowBadge::Paint(p, rect());
+	}
+};
+
+class MelowCatBadgeButton final : public Ui::AbstractButton {
+public:
+	explicit MelowCatBadgeButton(QWidget *parent)
+	: Ui::AbstractButton(parent) {
+		setCursor(style::cur_pointer);
+		resize(MelowBadge::kSize, MelowBadge::kSize);
+	}
+
+protected:
+	void paintEvent(QPaintEvent *e) override {
+		Painter p(this);
+		MelowBadge::PaintCat(p, rect());
 	}
 };
 
@@ -431,6 +447,15 @@ TopBar::TopBar(
 	_title->setContextCopyText(tr::lng_profile_copy_fullname(tr::now));
 
 	if (MelowBadge::IsUser(_peer)) {
+		if (MelowBadge::HasCatBadge(_peer)) {
+			_melowCatBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowCatBadgeButton(this));
+			_melowCatBadge->setClickedCallback([=] {
+				controller->showToast(Ui::Toast::Config{
+					.text = u"просто милый бейджик"_q,
+				});
+			});
+			_melowCatBadge->show();
+		}
 		_melowUserBadge = object_ptr<Ui::AbstractButton>::fromRaw(new MelowBadgeButton(this));
 		_melowUserBadge->setClickedCallback([=, peer = _peer] {
 			controller->showToast(Ui::Toast::Config{
@@ -1793,16 +1818,7 @@ void TopBar::paintEdges(QPainter &p, const QBrush &brush) const {
 }
 
 void TopBar::paintEdges(QPainter &p) const {
-	const auto blur = Core::IsAppLaunched()
-		&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
-	const auto blackout = Core::IsAppLaunched()
-		? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
-		: 100;
-	if (blur && blackout < 100) {
-		auto color = _solidBg.value_or(st::windowBg->c);
-		color.setAlpha((blackout * 255) / 100);
-		paintEdges(p, color);
-	} else if (!_solidBg) {
+	if (!_solidBg) {
 		paintEdges(p, st::boxDividerBg);
 	} else {
 		paintEdges(p, *_solidBg);
@@ -1905,6 +1921,9 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	if (botVerifyWidget) {
 		badgesWidth += botVerifyWidget->width();
 	}
+	if (_melowCatBadge) {
+		badgesWidth += MelowBadge::kSize + 6;
+	}
 	if (_melowUserBadge) {
 		badgesWidth += MelowBadge::kSize + 6;
 	}
@@ -1952,9 +1971,10 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 	totalElementsWidth += botVerifySkip;
 
 	const auto centeredTitleLeft = (width() - _title->width()) / 2;
-	const auto melowUserSkip = _melowUserBadge ? (MelowBadge::kSize + 6) : 0;
+	const auto melowUserSkip = (_melowUserBadge ? (MelowBadge::kSize + 6) : 0)
+		+ (_melowCatBadge ? (MelowBadge::kSize + 6) : 0);
 	const auto collapsedTitleLeft = titleMostLeft + melowUserSkip;
-	const auto expandedTitleLeft = _melowUserBadge
+	const auto expandedTitleLeft = (_melowUserBadge || _melowCatBadge)
 		? centeredTitleLeft
 		: ((width() - totalElementsWidth) / 2);
 
@@ -1973,7 +1993,19 @@ void TopBar::updateTitlePosition(float64 progressCurrent) {
 
 	_title->moveToLeft(titleLeft, titleTop);
 
-	if (_melowUserBadge) {
+	if (_melowCatBadge && _melowUserBadge) {
+		const auto totalUserBadgesWidth = (MelowBadge::kSize + 6) * 2;
+		const auto catBadgeLeft = anim::interpolate(
+			titleMostLeft,
+			centeredTitleLeft - totalUserBadgesWidth,
+			progressCurrent);
+		const auto userBadgeLeft = anim::interpolate(
+			titleMostLeft + MelowBadge::kSize + 6,
+			centeredTitleLeft - MelowBadge::kSize - 6,
+			progressCurrent);
+		_melowCatBadge->moveToLeft(catBadgeLeft, melowBadgeY);
+		_melowUserBadge->moveToLeft(userBadgeLeft, melowBadgeY);
+	} else if (_melowUserBadge) {
 		const auto userBadgeLeft = anim::interpolate(
 			titleMostLeft,
 			centeredTitleLeft - MelowBadge::kSize - 6,
@@ -2839,17 +2871,22 @@ void TopBar::paintEvent(QPaintEvent *e) {
 				offset);
 		}
 	}
+	const auto blur = Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	const auto gif = Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
+	const auto blackout = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+		: 100;
+	const auto hasBack = (blur || gif);
+	const auto blackoutOpacity = (hasBack && blackout < 100) ? (std::clamp(blackout, 15, 100) / 100.0) : 1.0;
+
+	if (hasBack && blackout < 100) {
+		p.setOpacity(blackoutOpacity);
+	}
 	if (!_hasGradientBg) {
 		paintEdges(p);
 	} else {
-		const auto blur = Core::IsAppLaunched()
-			&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
-		const auto blackout = Core::IsAppLaunched()
-			? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
-			: 100;
-		if (blur && blackout < 100) {
-			p.setOpacity(blackout / 100.0);
-		}
 		const auto x = (width()
 			- _cachedGradient.width() / style::DevicePixelRatio())
 				/ 2;
@@ -2871,9 +2908,9 @@ void TopBar::paintEvent(QPaintEvent *e) {
 		} else {
 			p.drawImage(x, y, _cachedGradient);
 		}
-		if (blur && blackout < 100) {
-			p.setOpacity(1.0);
-		}
+	}
+	if (hasBack && blackout < 100) {
+		p.setOpacity(1.0);
 	}
 	if (_patternEmoji && _patternEmoji->ready()) {
 		paintAnimatedPattern(p, rect(), geometry);
@@ -3170,7 +3207,7 @@ void TopBar::setupShowLastSeen(
 		return;
 	}
 
-	if (user->session().premium()) {
+	if (user->session().premium() || IsMelowGramAlwaysShowLastVisitEnabled()) {
 		if (user->lastseen().isHiddenByMe()) {
 			user->updateFullForced();
 		}
@@ -3184,14 +3221,16 @@ void TopBar::setupShowLastSeen(
 			Data::PeerUpdate::Flag::OnlineStatus),
 		Data::AmPremiumValue(&user->session())
 	) | rpl::on_next([=](auto, bool premium) {
+		const auto alwaysShow = IsMelowGramAlwaysShowLastVisitEnabled();
 		const auto wasShown = _showLastSeen->toggled();
 		const auto hiddenByMe = user->lastseen().isHiddenByMe();
 		const auto shown = hiddenByMe
 			&& !user->lastseen().isOnline(base::unixtime::now())
 			&& !premium
+			&& !alwaysShow
 			&& user->session().premiumPossible();
 		_showLastSeen->toggle(shown, anim::type::instant);
-		if (wasShown && premium && hiddenByMe) {
+		if ((wasShown || alwaysShow) && (premium || alwaysShow) && hiddenByMe) {
 			user->updateFullForced();
 		}
 	}, _showLastSeen->lifetime());
@@ -3910,14 +3949,16 @@ TopBarActionButtonStyle TopBar::mapActionStyle(
 	} else {
 		const auto blur = Core::IsAppLaunched()
 			&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+		const auto gif = Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
 		const auto blackout = Core::IsAppLaunched()
 			? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
 			: 100;
 		auto bg = anim::with_alpha(
 			st::boxBg->c,
 			1. - st::infoProfileTopBarActionButtonBgOpacity);
-		if (blur && blackout < 100) {
-			bg.setAlpha(std::min(bg.alpha(), (blackout * 255) / 100));
+		if ((blur || gif) && blackout < 100) {
+			bg.setAlpha(std::min(bg.alpha(), (std::clamp(blackout, 15, 100) * 255) / 100));
 		}
 		return TopBarActionButtonStyle{
 			.bgColor = bg,

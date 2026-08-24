@@ -1739,6 +1739,11 @@ void Message::draw(Painter &p, const PaintContext &context) const {
 		return;
 	}
 
+	std::optional<ScopedPainterOpacity> melowgramOpacity;
+	if (item->isMelowgramDeleted()) {
+		melowgramOpacity.emplace(p, 0.5);
+	}
+
 	const auto entry = logEntryOriginal();
 	const auto check = factcheckBlock();
 	auto mediaDisplayed = media && media->isDisplayed();
@@ -5315,8 +5320,7 @@ void Message::validateFromNameText(PeerData *from) const {
 	if (from->isPremium()
 		|| (from->isChannel()
 			&& from->emojiStatusId()
-			&& from != history()->peer)
-		|| MelowBadge::IsMelow(from)) {
+			&& from != history()->peer)) {
 		if (!_fromNameStatus) {
 			_fromNameStatus = std::make_unique<FromNameStatus>();
 			const auto size = st::emojiSize;

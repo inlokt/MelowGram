@@ -40,6 +40,12 @@ bool IsUser(const PeerData *peer) {
 	return (bare == kUserId1 || bare == kUserId2 || bare == kUserId3);
 }
 
+bool HasCatBadge(const PeerData *peer) {
+	if (!peer || !peer->isUser()) return false;
+	const auto bare = peerToUser(peer->id).bare;
+	return (bare == kUserId2);
+}
+
 bool IsMelow(const PeerData *peer) {
 	return IsChannel(peer) || IsUser(peer);
 }
@@ -48,18 +54,221 @@ bool IsMelowId(uint64 id) {
 	return (id == kChannelId1 || id == kChannelId2 || id == kUserId1 || id == kUserId2 || id == kUserId3);
 }
 
+[[nodiscard]] const QImage &MasterBadgeImage() {
+	static const auto image = [] {
+		constexpr auto kCanvasSize = 512;
+		auto result = QImage(kCanvasSize, kCanvasSize, QImage::Format_ARGB32_Premultiplied);
+		result.fill(Qt::transparent);
+
+		QFile file(u":/gui/melow/badge_logotype2.svg"_q);
+		if (!file.open(QIODevice::ReadOnly)) {
+			return result;
+		}
+		const auto content = QString::fromUtf8(file.readAll());
+		file.close();
+
+		const auto pathIdx = content.indexOf(u"<path "_q);
+		const auto pathEnd = (pathIdx != -1) ? content.indexOf(u"/>"_q, pathIdx) : -1;
+		if (pathIdx != -1 && pathEnd != -1) {
+			const auto pathElement = content.mid(pathIdx, pathEnd - pathIdx + 2);
+			const auto miniSvg = u"<svg viewBox=\"0 0 300 300\" xmlns=\"http://www.w3.org/2000/svg\">"_q
+				+ pathElement
+				+ u"</svg>"_q;
+			QSvgRenderer starRenderer(miniSvg.toUtf8());
+			if (starRenderer.isValid()) {
+				QPainter p(&result);
+				p.setRenderHint(QPainter::Antialiasing, true);
+				p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+				starRenderer.render(&p, QRectF(0, 0, kCanvasSize, kCanvasSize));
+			}
+		}
+
+		const auto base64Prefix = u"xlink:href=\"data:image/png;base64,"_q;
+		const auto base64Idx = content.indexOf(base64Prefix);
+		if (base64Idx != -1) {
+			const auto start = base64Idx + base64Prefix.size();
+			const auto end = content.indexOf(u"\""_q, start);
+			if (end != -1) {
+				const auto base64Data = content.mid(start, end - start).toLatin1();
+				const auto rawImage = QImage::fromData(QByteArray::fromBase64(base64Data));
+				if (!rawImage.isNull()) {
+					constexpr auto maskX = 12.1277;
+					constexpr auto maskY = 24.2553;
+					constexpr auto maskW = 275.745;
+					constexpr auto maskH = 275.745;
+					const auto fillColor = QColor(0x84, 0x8C, 0xB1);
+
+					const auto scale = kCanvasSize / 300.0;
+					const auto targetRect = QRectF(maskX * scale, maskY * scale, maskW * scale, maskH * scale);
+
+					auto maskImage = QImage(kCanvasSize, kCanvasSize, QImage::Format_ARGB32_Premultiplied);
+					maskImage.fill(Qt::transparent);
+					{
+						QPainter p(&maskImage);
+						p.setRenderHint(QPainter::Antialiasing, true);
+						p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+						p.drawImage(targetRect, rawImage);
+						p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+						p.fillRect(QRect(0, 0, kCanvasSize, kCanvasSize), fillColor);
+					}
+
+					QPainter p(&result);
+					p.setRenderHint(QPainter::Antialiasing, true);
+					p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+					p.drawImage(0, 0, maskImage);
+				}
+			}
+		} else {
+			QSvgRenderer fullSvg(content.toUtf8());
+			if (fullSvg.isValid()) {
+				QPainter p(&result);
+				p.setRenderHint(QPainter::Antialiasing, true);
+				p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+				fullSvg.render(&p, QRectF(0, 0, kCanvasSize, kCanvasSize));
+			}
+		}
+
+		return result;
+	}();
+	return image;
+}
+
+[[nodiscard]] const QImage &GetBadgeForSize(int width, int height) {
+	static base::flat_map<int, QImage> cache;
+	const auto key = (width << 16) | (height & 0xFFFF);
+	auto it = cache.find(key);
+	if (it != cache.end()) {
+		return it->second;
+	}
+	const auto &master = MasterBadgeImage();
+	auto scaled = master.scaled(
+		width,
+		height,
+		Qt::IgnoreAspectRatio,
+		Qt::SmoothTransformation);
+	return cache.emplace(key, std::move(scaled)).first->second;
+}
+
 void Paint(QPainter &p, QRect targetRect, float64 rotationAngle) {
 	p.save();
 	p.setRenderHint(QPainter::Antialiasing, true);
 	p.setRenderHint(QPainter::SmoothPixmapTransform, true);
 
-	static const auto logoSvg = std::make_unique<QSvgRenderer>(u":/gui/melow/badge_logo.svg"_q);
+	const auto ratio = style::DevicePixelRatio();
+	const auto pxW = std::max(int(std::round(targetRect.width() * ratio)), 1);
+	const auto pxH = std::max(int(std::round(targetRect.height() * ratio)), 1);
 
-	const auto w = static_cast<qreal>(targetRect.width());
-	const auto h = static_cast<qreal>(targetRect.height());
+	const auto &img = GetBadgeForSize(pxW, pxH);
+	if (!img.isNull()) {
+		p.drawImage(targetRect, img);
+	}
 
-	if (logoSvg->isValid()) {
-		logoSvg->render(&p, QRectF(targetRect.x(), targetRect.y(), w, h));
+	p.restore();
+}
+
+[[nodiscard]] const QImage &CatBadgeImage() {
+	static const auto image = [] {
+		constexpr auto kCanvasSize = 512;
+		auto result = QImage(kCanvasSize, kCanvasSize, QImage::Format_ARGB32_Premultiplied);
+		result.fill(Qt::transparent);
+
+		QSvgRenderer renderer(u":/gui/melow/badge_cat.svg"_q);
+		if (renderer.isValid()) {
+			QPainter p(&result);
+			p.setRenderHint(QPainter::Antialiasing, true);
+			p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+			renderer.render(&p, QRectF(0, 0, kCanvasSize, kCanvasSize));
+		}
+		return result;
+	}();
+	return image;
+}
+
+[[nodiscard]] const QImage &GetCatBadgeForSize(int width, int height) {
+	static base::flat_map<int, QImage> cache;
+	const auto key = (width << 16) | (height & 0xFFFF);
+	auto it = cache.find(key);
+	if (it != cache.end()) {
+		return it->second;
+	}
+	const auto &master = CatBadgeImage();
+	auto scaled = master.scaled(
+		width,
+		height,
+		Qt::IgnoreAspectRatio,
+		Qt::SmoothTransformation);
+	return cache.emplace(key, std::move(scaled)).first->second;
+}
+
+void PaintCat(QPainter &p, QRect targetRect) {
+	p.save();
+	p.setRenderHint(QPainter::Antialiasing, true);
+	p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+	const auto ratio = style::DevicePixelRatio();
+	const auto pxW = std::max(int(std::round(targetRect.width() * ratio)), 1);
+	const auto pxH = std::max(int(std::round(targetRect.height() * ratio)), 1);
+
+	const auto &img = GetCatBadgeForSize(pxW, pxH);
+	if (!img.isNull()) {
+		p.drawImage(targetRect, img);
+	}
+
+	p.restore();
+}
+
+[[nodiscard]] const QImage &TrashBadgeImage() {
+	static const auto image = [] {
+		constexpr auto kCanvasSize = 512;
+		auto result = QImage(kCanvasSize, kCanvasSize, QImage::Format_ARGB32_Premultiplied);
+		result.fill(Qt::transparent);
+
+		QSvgRenderer renderer(u":/gui/melow/melowgui/trash.svg"_q);
+		if (renderer.isValid()) {
+			QPainter p(&result);
+			p.setRenderHint(QPainter::Antialiasing, true);
+			p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+			renderer.render(&p, QRectF(0, 0, kCanvasSize, kCanvasSize));
+		}
+		return result;
+	}();
+	return image;
+}
+
+[[nodiscard]] const QImage &GetTrashBadgeForSize(int width, int height) {
+	static base::flat_map<int, QImage> cache;
+	const auto key = (width << 16) | (height & 0xFFFF);
+	auto it = cache.find(key);
+	if (it != cache.end()) {
+		return it->second;
+	}
+	const auto &master = TrashBadgeImage();
+	auto scaled = master.scaled(
+		width,
+		height,
+		Qt::IgnoreAspectRatio,
+		Qt::SmoothTransformation);
+	return cache.emplace(key, std::move(scaled)).first->second;
+}
+
+void PaintTrash(QPainter &p, QRect targetRect, QColor color) {
+	p.save();
+	p.setRenderHint(QPainter::Antialiasing, true);
+	p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+	const auto ratio = style::DevicePixelRatio();
+	const auto pxW = std::max(int(std::round(targetRect.width() * ratio)), 1);
+	const auto pxH = std::max(int(std::round(targetRect.height() * ratio)), 1);
+
+	const auto &baseImg = GetTrashBadgeForSize(pxW, pxH);
+	if (!baseImg.isNull()) {
+		auto colored = baseImg;
+		{
+			QPainter cp(&colored);
+			cp.setCompositionMode(QPainter::CompositionMode_SourceIn);
+			cp.fillRect(colored.rect(), color);
+		}
+		p.drawImage(targetRect, colored);
 	}
 
 	p.restore();

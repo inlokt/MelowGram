@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/view/history_view_self_forwards_tagger.h"
 #include "history/view/history_view_draw_to_reply.h"
 #include "history/history.h"
+#include "melow/plugin_engine.h"
 #include "history/history_drag_area.h"
 #include "history/history_item_components.h"
 #include "history/history_item_helpers.h" // GetErrorForSending.
@@ -1612,6 +1613,30 @@ void ChatWidget::sendTextWithTags(
 		bool useCurrentWebPageDraft,
 		Api::SendOptions options,
 		Fn<void()> done) {
+	if (_peer) {
+		const auto filtered = Melow::PluginEngine::Instance().filterOutgoingMessage(_peer, textWithTags.text, textWithTags.tags);
+		if (filtered.cancel) {
+			return;
+		}
+		auto text = filtered.text;
+		auto tags = filtered.tags;
+		if (text.startsWith(u"**"_q) && text.endsWith(u"**"_q) && text.size() >= 4) {
+			text = text.mid(2, text.size() - 4);
+			tags.push_back({ 0, int(text.size()), u"**"_q });
+		} else if (text.startsWith(u"__"_q) && text.endsWith(u"__"_q) && text.size() >= 4) {
+			text = text.mid(2, text.size() - 4);
+			tags.push_back({ 0, int(text.size()), u"__"_q });
+		} else if (text.startsWith(u"`"_q) && text.endsWith(u"`"_q) && text.size() >= 2) {
+			text = text.mid(1, text.size() - 2);
+			tags.push_back({ 0, int(text.size()), u"`"_q });
+		} else if (text.startsWith(u"||"_q) && text.endsWith(u"||"_q) && text.size() >= 4) {
+			text = text.mid(2, text.size() - 4);
+			tags.push_back({ 0, int(text.size()), u"||"_q });
+		}
+		textWithTags.text = text;
+		textWithTags.tags = std::move(tags);
+	}
+
 	if (!options.scheduled) {
 		_cornerButtons.clearReplyReturns();
 	}

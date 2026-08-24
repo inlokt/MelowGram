@@ -1006,8 +1006,10 @@ void InnerWidget::showSavedSublists() {
 }
 
 void InnerWidget::paintEvent(QPaintEvent *e) {
-	int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
-	bool wantOpaque = (st::dialogsBg->c.alpha() == 255) && (blackout == 100);
+	const auto blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	const auto gif = Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
+	const auto blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
+	const bool wantOpaque = !(blur || gif) || (blackout >= 100);
 	
 	if (testAttribute(Qt::WA_OpaquePaintEvent) != wantOpaque) {
 		setAttribute(Qt::WA_OpaquePaintEvent, wantOpaque);

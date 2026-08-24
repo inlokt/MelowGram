@@ -264,6 +264,7 @@ private:
 	std::vector<std::unique_ptr<BadgeTooltip>> _badgeOldTooltips;
 	uint64 _badgeCollectibleId = 0;
 
+	object_ptr<Ui::AbstractButton> _melowCatBadge = { nullptr };
 	object_ptr<Ui::AbstractButton> _melowUserBadge = { nullptr };
 	object_ptr<Ui::AbstractButton> _melowChannelBadge = { nullptr };
 

@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "payments/payments_form.h"
 #include "ui/chat/chat_style.h" // ColorCollectible
 #include "ui/text/format_values.h"
+#include "melow/local_server.h"
 
 namespace Api {
 namespace {
@@ -864,6 +865,11 @@ std::optional<Data::StarGift> FromTL(
 					.text = ColorFromSerialized(fields.vtext_color()),
 				});
 		};
+		Melow::LocalServer::Instance().registerStarGift(
+			uint64(data.vid().v),
+			document.get(),
+			qs(data.vtitle().value_or_empty()),
+			int64(data.vstars().v));
 		return std::optional<Data::StarGift>(Data::StarGift{
 			.id = uint64(data.vid().v),
 			.background = background(),
@@ -989,6 +995,19 @@ std::optional<Data::StarGift> FromTL(
 				unique->originalDetails = FromTL(session, data);
 			});
 		}
+		Melow::LocalServer::Instance().registerUniqueGift(
+			data.vid().v,
+			qs(data.vslug()),
+			qs(data.vtitle()),
+			data.vnum().v,
+			model->document.get(),
+			pattern->document.get(),
+			uint32(unique->backdrop.id),
+			unique->backdrop.centerColor.rgb(),
+			unique->backdrop.edgeColor.rgb(),
+			unique->backdrop.patternColor.rgb(),
+			pattern->name,
+			unique->backdrop.name);
 		return std::make_optional(std::move(result));
 	});
 }

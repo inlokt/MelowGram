@@ -233,11 +233,15 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
 			}
 		};
 		to.document = document;
-		to.emoji = document->owner().customEmojiManager().create(
-			document,
-			callback,
-			Data::CustomEmojiSizeTag::Large);
-		[[maybe_unused]] const auto preload = to.emoji->ready();
+		if (document) {
+			to.emoji = document->owner().customEmojiManager().create(
+				document,
+				callback,
+				Data::CustomEmojiSizeTag::Large);
+			if (to.emoji) {
+				[[maybe_unused]] const auto preload = to.emoji->ready();
+			}
+		}
 	};
 
 	if (const auto spinner = _state->spinner.get()) {

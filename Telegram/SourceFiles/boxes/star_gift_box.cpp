@@ -8,6 +8,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/star_gift_box.h"
 
 #include "boxes/star_gift_cover_box.h"
+#include "melow/local_server.h"
+#include "data/data_credits.h"
 
 #include "apiwrap.h"
 #include "api/api_credits.h"
@@ -4244,12 +4246,226 @@ void ShowStarGiftUpgradeBox(StarGiftUpgradeArgs &&args) {
 	}).send();
 }
 
+MTPDocument DocumentToMTP(DocumentData *doc) {
+	if (!doc) {
+		return MTP_documentEmpty(MTP_long(0));
+	}
+	auto attributes = QVector<MTPDocumentAttribute>();
+	if (const auto sticker = doc->sticker()) {
+		attributes.push_back(MTP_documentAttributeSticker(
+			MTP_flags(0),
+			MTP_string(sticker->alt),
+			MTP_inputStickerSetEmpty(),
+			MTPMaskCoords()));
+	}
+	attributes.push_back(MTP_documentAttributeImageSize(
+		MTP_int(doc->dimensions.width() ? doc->dimensions.width() : 512),
+		MTP_int(doc->dimensions.height() ? doc->dimensions.height() : 512)));
+	return MTP_document(
+		MTP_flags(0),
+		MTP_long(int64(doc->id)),
+		MTP_long(0),
+		MTP_bytes(doc->fileReference()),
+		MTP_int(doc->date ? doc->date : base::unixtime::now()),
+		MTP_string(doc->mimeString().isEmpty() ? u"application/x-tgsticker"_q : doc->mimeString()),
+		MTP_long(doc->size ? int64(doc->size) : 1024),
+		MTP_vector<MTPPhotoSize>(),
+		MTPVector<MTPVideoSize>(),
+		MTP_int(1),
+		MTP_vector<MTPDocumentAttribute>(std::move(attributes)));
+}
+
+void SendLocalGiftCardMessage(
+		not_null<Main::Session*> session,
+		PeerId toPeerId,
+		const Melow::LocalGift &gift) {
+	if (!toPeerId) {
+		return;
+	}
+	const auto doc = Melow::LocalServer::Instance().ensureModelDocument(session, gift);
+	const auto patternDoc = Melow::LocalServer::Instance().ensurePatternDocument(session, gift);
+
+	const auto history = session->data().history(toPeerId);
+	const auto msgId = history->owner().nextNonHistoryEntryId();
+
+	const auto patName = gift.patternName.isEmpty() ? u"Cosmic Symbol"_q : gift.patternName;
+	const auto backName = gift.backdropName.isEmpty() ? u"Celestial Velvet"_q : gift.backdropName;
+
+	auto model = Data::UniqueGiftModel{ { gift.title.isEmpty() ? u"Unique Gift"_q : gift.title }, doc };
+	model.rarityValue = int(Data::UniqueGiftRarity::Rare);
+
+	auto pattern = Data::UniqueGiftPattern{ { patName }, patternDoc };
+	pattern.rarityValue = int(Data::UniqueGiftRarity::Rare);
+
+	const auto centerColor = gift.centerColor ? QColor::fromRgb(QRgb(uint32(gift.centerColor))) : QColor(0xD9, 0x6E, 0x34);
+	const auto edgeColor = gift.edgeColor ? QColor::fromRgb(QRgb(uint32(gift.edgeColor))) : QColor(0x8C, 0x33, 0x12);
+	const auto patternColor = gift.patternColor ? QColor::fromRgb(QRgb(uint32(gift.patternColor))) : QColor(0xEA, 0x90, 0x55, 120);
+	auto backdrop = Data::UniqueGiftBackdrop{
+		{ backName },
+		centerColor,
+		edgeColor,
+		patternColor,
+		QColor(0xFF, 0xFF, 0xFF),
+		int(gift.backdropId ? gift.backdropId : 1),
+	};
+	backdrop.rarityValue = int(Data::UniqueGiftRarity::Rare);
+
+	auto unique = std::make_shared<Data::UniqueGift>(Data::UniqueGift{
+		.id = gift.id,
+		.initialGiftId = gift.initialGiftId,
+		.slug = gift.slug,
+		.title = gift.title,
+		.ownerName = session->user()->name(),
+		.ownerId = session->user()->id,
+		.nanoTonForResale = -1,
+		.starsForResale = -1,
+		.starsMinOffer = -1,
+		.number = gift.number,
+		.model = std::move(model),
+		.pattern = std::move(pattern),
+		.backdrop = std::move(backdrop),
+	});
+
+	auto serviceText = PreparedServiceText();
+	if (gift.isUnique) {
+		serviceText.text = tr::lng_action_gift_unique_sent(
+			tr::now,
+			tr::marked);
+	} else {
+		const auto cost = TextWithEntities{
+			tr::lng_action_gift_for_stars(tr::now, lt_count, gift.stars ? gift.stars : 1),
+		};
+		serviceText.text = tr::lng_action_gift_sent(
+			tr::now,
+			lt_cost,
+			cost,
+			tr::marked);
+	}
+
+	const auto item = history->makeMessage(
+		HistoryItemCommonFields{
+			.id = msgId,
+			.flags = MessageFlag::Local | MessageFlag::HasFromId | MessageFlag::Outgoing,
+			.from = session->user()->id,
+			.date = base::unixtime::now(),
+		},
+		std::move(serviceText));
+
+	auto giftCode = Data::GiftCode{
+		.slug = gift.slug,
+		.stargiftId = gift.id,
+		.document = doc,
+		.unique = std::move(unique),
+		.giftNum = gift.number,
+		.count = gift.stars,
+		.type = Data::GiftType::StarGift,
+		.transferred = true,
+		.saved = true,
+	};
+	item->setGiftBoxMedia(std::move(giftCode));
+
+	history->addNewLocalMessage(item);
+
+	history->owner().notifyHistoryChangeDelayed(history);
+	history->owner().sendHistoryChangeNotifications();
+}
+
 void SubmitStarsForm(
 		std::shared_ptr<Main::SessionShow> show,
 		MTPInputInvoice invoice,
 		uint64 formId,
 		uint64 price,
 		Fn<void(Payments::CheckoutResult, const MTPUpdates *)> done) {
+	if (Melow::LocalServer::Instance().isEnabled()) {
+		auto &localServer = Melow::LocalServer::Instance();
+		if (localServer.stars() < int64(price)) {
+			show->showToast(u"Недостаточно звёзд на локальном сервере!"_q);
+			done(Payments::CheckoutResult::Failed, nullptr);
+			return;
+		}
+		const auto session = &show->session();
+		const auto selfUserId = session->user()->id;
+
+		const auto extractPeerId = [&](const MTPInputPeer &peer) -> PeerId {
+			return peer.match([&](const MTPDinputPeerUser &d) {
+				return peerFromUser(UserId(d.vuser_id().v));
+			}, [&](const MTPDinputPeerUserFromMessage &d) {
+				return peerFromUser(UserId(d.vuser_id().v));
+			}, [&](const MTPDinputPeerChat &d) {
+				return peerFromChat(ChatId(d.vchat_id().v));
+			}, [&](const MTPDinputPeerChannel &d) {
+				return peerFromChannel(ChannelId(d.vchannel_id().v));
+			}, [&](const MTPDinputPeerChannelFromMessage &d) {
+				return peerFromChannel(ChannelId(d.vchannel_id().v));
+			}, [&](const MTPDinputPeerSelf &) {
+				return selfUserId;
+			}, [&](const auto &) {
+				return PeerId();
+			});
+		};
+
+		invoice.match([&](const MTPDinputInvoiceStarGift &data) {
+			const auto giftId = data.vgift_id().v;
+			const auto toPeerId = extractPeerId(data.vpeer());
+			QString messageText;
+			if (const auto message = data.vmessage()) {
+				message->match([&](const MTPDtextWithEntities &d) {
+					messageText = qs(d.vtext().v);
+				});
+			}
+			localServer.buyGift(giftId, u"Exclusive Gift"_q, 0, int(price), toPeerId, messageText);
+			session->credits().apply(CreditsAmount(localServer.stars()));
+			if (const auto g = localServer.findKnownGift(giftId)) {
+				SendLocalGiftCardMessage(session, toPeerId, *g);
+			}
+			show->showToast(u"Подарок успешно отправлен!"_q);
+			done(Payments::CheckoutResult::Paid, nullptr);
+		}, [&](const MTPDinputInvoiceStarGiftTransfer &data) {
+			const auto slug = data.vstargift().match([&](const MTPDinputSavedStarGiftUser &d) {
+				return QString();
+			}, [&](const MTPDinputSavedStarGiftChat &d) {
+				return QString();
+			}, [&](const MTPDinputSavedStarGiftSlug &d) {
+				return qs(d.vslug());
+			});
+			const auto toPeerId = extractPeerId(data.vto_id());
+			localServer.buyGiftBySlug(slug, int(price), toPeerId);
+			session->credits().apply(CreditsAmount(localServer.stars()));
+			if (const auto g = localServer.findGiftBySlug(slug)) {
+				SendLocalGiftCardMessage(session, toPeerId, *g);
+			}
+			show->showToast(u"Подарок успешно передан!"_q);
+			done(Payments::CheckoutResult::Paid, nullptr);
+		}, [&](const MTPDinputInvoiceStarGiftUpgrade &data) {
+			const auto giftId = data.vstargift().match([&](const MTPDinputSavedStarGiftUser &d) {
+				return uint64(d.vmsg_id().v);
+			}, [&](const MTPDinputSavedStarGiftChat &d) {
+				return uint64(d.vsaved_id().v);
+			}, [&](const auto &) {
+				return uint64(0);
+			});
+			localServer.buyGift(giftId, u"Exclusive Gift"_q, 0, int(price), selfUserId);
+			session->credits().apply(CreditsAmount(localServer.stars()));
+			if (const auto g = localServer.findKnownGift(giftId)) {
+				SendLocalGiftCardMessage(session, selfUserId, *g);
+			}
+			show->showToast(u"Подарок успешно улучшен!"_q);
+			done(Payments::CheckoutResult::Paid, nullptr);
+		}, [&](const MTPDinputInvoiceStarGiftResale &data) {
+			const auto slug = qs(data.vslug());
+			const auto toPeerId = extractPeerId(data.vto_id());
+			localServer.buyGiftBySlug(slug, int(price), toPeerId);
+			session->credits().apply(CreditsAmount(localServer.stars()));
+			if (const auto g = localServer.findGiftBySlug(slug)) {
+				SendLocalGiftCardMessage(session, toPeerId, *g);
+			}
+			show->showToast(u"Подарок успешно куплен!"_q);
+			done(Payments::CheckoutResult::Paid, nullptr);
+		}, [&](const auto &) {
+			done(Payments::CheckoutResult::Failed, nullptr);
+		});
+		return;
+	}
 	const auto ready = [=](Settings::SmallBalanceResult result) {
 		SendStarsFormRequest(show, result, formId, invoice, done);
 	};

@@ -401,14 +401,14 @@ void GiftButton::setDocument(not_null<DocumentData*> document) {
 
 		auto result = std::unique_ptr<HistoryView::StickerPlayer>();
 		const auto sticker = document->sticker();
-		if (sticker->isLottie()) {
+		if (sticker && sticker->isLottie()) {
 			result = std::make_unique<HistoryView::LottiePlayer>(
 				ChatHelpers::LottiePlayerFromDocument(
 					media.get(),
 					ChatHelpers::StickerLottieSize::InlineResults,
 					stickerSize(),
 					Lottie::Quality::High));
-		} else if (sticker->isWebm()) {
+		} else if (sticker && sticker->isWebm()) {
 			result = std::make_unique<HistoryView::WebmPlayer>(
 				media->owner()->location(),
 				media->bytes(),
@@ -620,11 +620,13 @@ void GiftButton::cacheUniqueBackground(
 		not_null<Data::UniqueGift*> unique,
 		int width,
 		int height) {
-	if (!_uniquePatternEmoji) {
+	if (!_uniquePatternEmoji && unique->pattern.document) {
 		_uniquePatternEmoji = _delegate->buttonPatternEmoji(unique, [=] {
 			update();
 		});
-		[[maybe_unused]] const auto preload = _uniquePatternEmoji->ready();
+		if (_uniquePatternEmoji) {
+			[[maybe_unused]] const auto preload = _uniquePatternEmoji->ready();
+		}
 	}
 	const auto outer = QRect(0, 0, width, height);
 	const auto extend = currentExtend();
@@ -642,12 +644,8 @@ void GiftButton::cacheUniqueBackground(
 		const auto radius = st::giftBoxGiftRadius;
 		auto p = QPainter(&_uniqueBackgroundCache);
 		paintUniqueBackgroundGradient(p, unique, inner, radius);
-		_patterned = false;
-	}
-	if (!_patterned && _uniquePatternEmoji->ready()) {
-		_patterned = true;
-		auto p = QPainter(&_uniqueBackgroundCache);
 		paintUniqueBackgroundPattern(p, unique, inner);
+		_patterned = true;
 	}
 }
 
@@ -658,9 +656,15 @@ void GiftButton::paintUniqueBackgroundGradient(
 		float64 radius) {
 	auto hq = PainterHighQualityEnabler(p);
 	auto gradient = QRadialGradient(inner.center(), inner.width() / 2);
+	auto center = (unique->backdrop.centerColor.isValid() && unique->backdrop.centerColor.alpha() > 0)
+		? unique->backdrop.centerColor
+		: QColor(0xD9, 0x6E, 0x34);
+	auto edge = (unique->backdrop.edgeColor.isValid() && unique->backdrop.edgeColor.alpha() > 0)
+		? unique->backdrop.edgeColor
+		: QColor(0x8C, 0x33, 0x12);
 	gradient.setStops({
-		{ 0., unique->backdrop.centerColor },
-		{ 1., unique->backdrop.edgeColor },
+		{ 0., center },
+		{ 1., edge },
 	});
 	p.setBrush(gradient);
 	p.setPen(Qt::NoPen);
@@ -673,17 +677,31 @@ void GiftButton::paintUniqueBackgroundPattern(
 		QRect inner) {
 	p.setClipRect(inner);
 	const auto skip = inner.width() / 3;
-	Ui::PaintBgPoints(
-		p,
-		Ui::PatternBgPointsSmall(),
-		_uniquePatternCache,
-		_uniquePatternEmoji.get(),
-		*unique,
-		QRect(
-			inner.x() - skip,
-			inner.y(),
-			inner.width() + 2 * skip,
-			inner.height()));
+	if (_uniquePatternEmoji && _uniquePatternEmoji->ready()) {
+		Ui::PaintBgPoints(
+			p,
+			Ui::PatternBgPointsSmall(),
+			_uniquePatternCache,
+			_uniquePatternEmoji.get(),
+			*unique,
+			QRect(
+				inner.x() - skip,
+				inner.y(),
+				inner.width() + 2 * skip,
+				inner.height()));
+	} else {
+		auto hq = PainterHighQualityEnabler(p);
+		auto patColor = (unique->backdrop.patternColor.isValid() && unique->backdrop.patternColor.alpha() > 0)
+			? unique->backdrop.patternColor
+			: QColor(0xEA, 0x90, 0x55, 120);
+		p.setPen(Qt::NoPen);
+		p.setBrush(patColor);
+		for (const auto &point : Ui::PatternBgPointsSmall()) {
+			const auto x = inner.x() + (point.position.x() * inner.width());
+			const auto y = inner.y() + (point.position.y() * inner.height());
+			p.drawEllipse(QPointF(x, y), 5.0, 5.0);
+		}
+	}
 }
 
 void GiftButton::paintEvent(QPaintEvent *e) {
@@ -724,7 +742,7 @@ void GiftButton::paintEvent(QPaintEvent *e) {
 void GiftButton::paint(QPainter &p, float64 craftProgress) {
 	const auto stargift = std::get_if<GiftTypeStars>(&_descriptor);
 	const auto unique = stargift ? stargift->info.unique.get() : nullptr;
-	const auto onsale = unique && unique->starsForResale && small();
+	const auto onsale = unique && (unique->starsForResale > 0 || unique->nanoTonForResale > 0) && small();
 	const auto requirePremium = stargift
 		&& !stargift->userpic
 		&& !stargift->resale
@@ -1211,6 +1229,9 @@ auto Delegate::buttonPatternEmoji(
 	not_null<Data::UniqueGift*> unique,
 	Fn<void()> repaint)
 -> std::unique_ptr<Ui::Text::CustomEmoji> {
+	if (!unique->pattern.document) {
+		return nullptr;
+	}
 	return _session->data().customEmojiManager().create(
 		unique->pattern.document,
 		repaint,

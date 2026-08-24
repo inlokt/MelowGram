@@ -130,13 +130,33 @@ const char kOptionNewWindowsSizeAsFirst[] = "new-windows-size-as-first";
 const char kOptionDisableTouchbar[] = "touchbar-disabled";
 
 const QImage &Logo() {
-	static const auto result = QImage(u":/gui/art/logo_256.png"_q);
-	return result;
+	static const auto defaultLogo = QImage(u":/gui/art/logo_256.png"_q);
+	static const auto monochromeLogo = QImage(u":/gui/melow/monochrome.png"_q);
+	static const auto animeLogo = QImage(u":/gui/melow/anime_avatar.png"_q);
+	const auto icon = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramAppIcon", 0)
+		: 0;
+	if (icon == 1) {
+		return monochromeLogo;
+	} else if (icon == 2) {
+		return animeLogo;
+	}
+	return defaultLogo;
 }
 
 const QImage &LogoNoMargin() {
-	static const auto result = QImage(u":/gui/art/logo_256_no_margin.png"_q);
-	return result;
+	static const auto defaultLogo = QImage(u":/gui/art/logo_256_no_margin.png"_q);
+	static const auto monochromeLogo = QImage(u":/gui/melow/monochrome.png"_q);
+	static const auto animeLogo = QImage(u":/gui/melow/anime_avatar.png"_q);
+	const auto icon = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramAppIcon", 0)
+		: 0;
+	if (icon == 1) {
+		return monochromeLogo;
+	} else if (icon == 2) {
+		return animeLogo;
+	}
+	return defaultLogo;
 }
 
 void ConvertIconToBlack(QImage &image) {
@@ -1254,12 +1274,11 @@ void MainWindow::setupMelowGramGif() {
 						s.scale(ws, Qt::KeepAspectRatioByExpanding);
 						int x = (ws.width() - s.width()) / 2;
 						int y = (ws.height() - s.height()) / 2;
-						
-						int blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
-						bool blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+						const auto blur = Core::App().settings().readPref<bool>("MelowGramBlur", false);
+						const auto blackout = Core::App().settings().readPref<int>("MelowGramBlackout", 100);
 						
 						p.setCompositionMode(QPainter::CompositionMode_Source);
-						if (blur && blackout < 100) {
+						if (blur) {
 							p.fillRect(_melowgramGifLabel->rect(), Qt::transparent);
 						} else {
 							p.fillRect(_melowgramGifLabel->rect(), Qt::black);
@@ -1267,9 +1286,8 @@ void MainWindow::setupMelowGramGif() {
 						
 						p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 						if (blur && blackout < 100) {
-							p.setOpacity(blackout / 100.0);
+							p.setOpacity(std::clamp(blackout, 15, 100) / 100.0);
 						}
-						
 						p.drawPixmap(x, y, s.width(), s.height(), pixmap);
 					}
 				}, _melowgramGifLabel->lifetime());

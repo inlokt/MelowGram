@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/info_section_widget.h"
 
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "window/window_adaptive.h"
 #include "window/window_connecting_widget.h"
 #include "window/window_session_controller.h"
@@ -104,7 +106,21 @@ void SectionWidget::showAnimatedHook(
 void SectionWidget::paintEvent(QPaintEvent *e) {
 	Window::SectionWidget::paintEvent(e);
 	if (!animatingShow()) {
-		QPainter(this).fillRect(e->rect(), st::windowBg);
+		const auto blur = Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+		const auto gif = Core::IsAppLaunched()
+			&& Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
+		const auto blackout = Core::IsAppLaunched()
+			? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+			: 100;
+		const auto hasBack = (blur || gif);
+		const auto blackoutOpacity = (hasBack && blackout < 100) ? (std::clamp(blackout, 15, 100) / 100.0) : 1.0;
+
+		auto p = QPainter(this);
+		if (hasBack && blackout < 100) {
+			p.setOpacity(blackoutOpacity);
+		}
+		p.fillRect(e->rect(), st::windowBg);
 	}
 }
 

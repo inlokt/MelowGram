@@ -365,12 +365,15 @@ void BuildSectionButtons(SectionBuilder &builder) {
 	const auto controller = builder.controller();
 	const auto showOther = builder.showOther();
 
-	builder.addSectionButton({
+	const auto melowButton = builder.addSectionButton({
 		.title = tr::lng_settings_section_melowgram(),
 		.targetSection = MelowGramId(),
-		.icon = { &st::menuIconSettings },
+		.icon = {},
 		.keywords = { u"melowgram"_q },
 	});
+	if (melowButton) {
+		AttachMelowSvgIcon(melowButton, st::settingsButton, u":/gui/melow/badge_logotype2.svg"_q, 20);
+	}
 	builder.addSkip();
 	builder.addDivider();
 

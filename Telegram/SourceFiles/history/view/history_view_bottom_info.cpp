@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 #include "ui/chat/message_bubble.h"
 #include "ui/chat/chat_style.h"
+#include "ui/unread_badge.h"
 #include "ui/effects/reaction_fly_animation.h"
 #include "ui/text/custom_emoji_helper.h"
 #include "ui/text/format_values.h"
@@ -36,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_credits.h"
 #include "styles/style_dialogs.h"
 #include "styles/style_menu_icons.h"
+#include "settings/sections/settings_other.h"
 
 namespace HistoryView {
 namespace {
@@ -156,6 +158,7 @@ bool BottomInfo::isWide() const {
 		|| _data.scheduleRepeatPeriod
 		|| !_data.author.isEmpty()
 		|| !_views.isEmpty()
+		|| !_forwards.isEmpty()
 		|| !_replies.isEmpty()
 		|| _effect
 		|| _data.tonStake;
@@ -202,6 +205,32 @@ TextState BottomInfo::textState(
 					*_data.forwardsCount))
 				: QString();
 			result.customTooltipText = fullViews + fullForwards;
+		}
+	}
+	if (!_forwards.isEmpty() && _data.forwardsCount) {
+		const auto viewsWidth = !_views.isEmpty()
+			? (_views.maxWidth() + st::historyViewsSpace + st::historyViewsWidth)
+			: 0;
+		const auto forwardsWidth = _forwards.maxWidth();
+		const auto right = width()
+			- withTicksWidth
+			- ((_data.flags & Data::Flag::Pinned) ? st::historyPinWidth : 0)
+			- viewsWidth
+			- st::historyViewsSpace
+			- st::historyViewsWidth
+			- forwardsWidth;
+		const auto inForwards = QRect(
+			right,
+			0,
+			forwardsWidth + st::historyViewsWidth,
+			st::msgDateFont->height
+		).contains(position);
+		if (inForwards) {
+			result.customTooltip = true;
+			result.customTooltipText = tr::lng_forwards_tooltip(
+				tr::now,
+				lt_count_decimal,
+				*_data.forwardsCount);
 		}
 	}
 	const auto inTime = QRect(
@@ -315,20 +344,13 @@ void BottomInfo::paint(
 			outerWidth);
 	}
 	if (_data.flags & Data::Flag::MelowgramDeleted) {
-		const auto &icon = st::menuIconDelete;
 		const int targetHeight = st::msgDateFont->height;
-		const int targetWidth = (icon.width() * targetHeight) / icon.height();
+		const int targetWidth = targetHeight;
 		right -= targetWidth;
-
-		const float scale = static_cast<float>(targetHeight) / icon.height();
-		p.save();
-		p.scale(scale, scale);
-		icon.paint(
+		MelowBadge::PaintTrash(
 			p,
-			QPoint(qRound(right / scale), qRound(position.y() / scale)),
-			qRound(outerWidth / scale),
-			QColor(255, 0, 0));
-		p.restore();
+			QRect(right, position.y(), targetWidth, targetHeight),
+			QColor(255, 60, 60));
 	}
 	if (_data.flags & Data::Flag::Ephemeral) {
 		const auto &icon = inverted
@@ -361,6 +383,21 @@ void BottomInfo::paint(
 		const auto &icon = inverted
 			? st->historyViewsInvertedIcon()
 			: stm->historyViewsIcon;
+		right -= st::historyViewsWidth;
+		icon.paint(
+			p,
+			right,
+			firstLineBottom + st::historyViewsTop,
+			outerWidth);
+	}
+	if (!_forwards.isEmpty()) {
+		const auto forwardsWidth = _forwards.maxWidth();
+		right -= st::historyViewsSpace + forwardsWidth;
+		_forwards.drawLeft(p, right, position.y(), forwardsWidth, outerWidth);
+
+		const auto &icon = inverted
+			? st->historyForwardsInvertedIcon()
+			: stm->historyForwardsIcon;
 		right -= st::historyViewsWidth;
 		icon.paint(
 			p,
@@ -494,6 +531,7 @@ QSize BottomInfo::countCurrentSize(int newWidth) {
 void BottomInfo::layout() {
 	layoutDateText();
 	layoutViewsText();
+	layoutForwardsText();
 	layoutRepliesText();
 	layoutEffectText();
 	initDimensions();
@@ -574,6 +612,22 @@ void BottomInfo::layoutViewsText() {
 		Ui::NameTextOptions());
 }
 
+void BottomInfo::layoutForwardsText() {
+	if (!_data.forwardsCount
+		|| !*_data.forwardsCount
+		|| !IsMelowGramDisplayRepostsInChannelsEnabled()
+		|| (_data.flags & Data::Flag::RepliesContext)
+		|| (_data.flags & Data::Flag::Sending)
+		|| (_data.flags & Data::Flag::Shortcut)) {
+		_forwards.clear();
+		return;
+	}
+	_forwards.setText(
+		st::msgDateTextStyle,
+		Lang::FormatCountToShort(*_data.forwardsCount).string,
+		Ui::NameTextOptions());
+}
+
 void BottomInfo::layoutRepliesText() {
 	if (!_data.replies
 		|| !*_data.replies
@@ -611,6 +665,11 @@ QSize BottomInfo::countOptimalSize() {
 			+ _views.maxWidth()
 			+ st::historyViewsWidth;
 	}
+	if (!_forwards.isEmpty()) {
+		width += st::historyViewsSpace
+			+ _forwards.maxWidth()
+			+ st::historyViewsWidth;
+	}
 	if (!_replies.isEmpty()) {
 		width += st::historyViewsSpace
 			+ _replies.maxWidth()
@@ -626,8 +685,7 @@ QSize BottomInfo::countOptimalSize() {
 		width += st::historyEphemeralStateWidth;
 	}
 	if (_data.flags & Data::Flag::MelowgramDeleted) {
-		const int targetHeight = st::msgDateFont->height;
-		width += (st::menuIconDelete.width() * targetHeight) / st::menuIconDelete.height();
+		width += st::msgDateFont->height;
 	}
 	_effectMaxWidth = countEffectMaxWidth();
 	width += _effectMaxWidth;

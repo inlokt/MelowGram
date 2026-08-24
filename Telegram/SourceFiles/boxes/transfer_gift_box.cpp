@@ -19,8 +19,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "boxes/peer_list_controllers.h"
 #include "boxes/star_gift_box.h"
 #include "boxes/star_gift_resale_box.h"
+#include "melow/local_server.h"
 #include "data/data_cloud_themes.h"
 #include "data/data_session.h"
+#include "data/data_document.h"
 #include "data/data_star_gift.h"
 #include "data/data_thread.h"
 #include "data/data_user.h"
@@ -542,6 +544,20 @@ void BuyResaleGift(
 			Ui::ShowResaleGiftBoughtToast(show, to, *gift);
 		}
 	};
+
+	Melow::LocalServer::Instance().registerUniqueGift(
+		gift->id,
+		gift->slug,
+		gift->title,
+		gift->number,
+		gift->model.document.get(),
+		gift->pattern.document.get(),
+		uint32(gift->backdrop.id),
+		gift->backdrop.centerColor.rgb(),
+		gift->backdrop.edgeColor.rgb(),
+		gift->backdrop.patternColor.rgb(),
+		gift->pattern.name,
+		gift->backdrop.name);
 
 	using Flag = MTPDinputInvoiceStarGiftResale::Flag;
 	const auto invoice = MTP_inputInvoiceStarGiftResale(

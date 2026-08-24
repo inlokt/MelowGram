@@ -78,6 +78,8 @@ private:
 
 	SingleQueuedInvokation _reload;
 
+	rpl::lifetime _lifetime;
+
 };
 
 } // namespace Data

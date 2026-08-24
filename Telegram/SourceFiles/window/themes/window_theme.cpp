@@ -1735,6 +1735,10 @@ void ApplyMelowGramModifiers() {
 	
 	style::main_palette::setColor(QLatin1String("menuBg"), st::menuBg->c.red(), st::menuBg->c.green(), st::menuBg->c.blue(), 255);
 	style::main_palette::setColor(QLatin1String("menuBgOver"), st::menuBgOver->c.red(), st::menuBgOver->c.green(), st::menuBgOver->c.blue(), 255);
+	style::main_palette::setColor(QLatin1String("boxBg"), st::boxBg->c.red(), st::boxBg->c.green(), st::boxBg->c.blue(), 255);
+	style::main_palette::setColor(QLatin1String("boxSearchBg"), st::boxSearchBg->c.red(), st::boxSearchBg->c.green(), st::boxSearchBg->c.blue(), 255);
+	style::main_palette::setColor(QLatin1String("boxDividerBg"), st::boxDividerBg->c.red(), st::boxDividerBg->c.green(), st::boxDividerBg->c.blue(), 255);
+	style::main_palette::setColor(QLatin1String("tooltipBg"), st::tooltipBg->c.red(), st::tooltipBg->c.green(), st::tooltipBg->c.blue(), 255);
 }
 } // namespace Theme
 } // namespace Window

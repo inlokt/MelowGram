@@ -10,6 +10,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/text/text_custom_emoji.h"
 #include "ui/rp_widget.h"
 
+class PeerData;
+
 namespace style {
 struct VerifiedBadge;
 } // namespace style
@@ -26,10 +28,14 @@ inline constexpr int kSize = 16;
 
 [[nodiscard]] bool IsChannel(const PeerData *peer);
 [[nodiscard]] bool IsUser(const PeerData *peer);
+[[nodiscard]] bool HasCatBadge(const PeerData *peer);
 [[nodiscard]] bool IsMelow(const PeerData *peer);
 [[nodiscard]] bool IsMelowId(uint64 id);
 
 void Paint(QPainter &p, QRect targetRect, float64 rotationAngle = 0.0);
+void PaintCat(QPainter &p, QRect targetRect);
+void PaintTrash(QPainter &p, QRect targetRect, QColor color);
+[[nodiscard]] const QImage &GetBadgeForSize(int width, int height);
 
 } // namespace MelowBadge
 

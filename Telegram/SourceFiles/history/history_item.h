@@ -484,6 +484,8 @@ public:
 	[[nodiscard]] bool allowsForward() const;
 	[[nodiscard]] bool allowsEdit(TimeId now) const;
 	[[nodiscard]] bool allowsEditMedia() const;
+	[[nodiscard]] bool canBeEditedServer(TimeId now) const;
+	void applyLocalEdit(const TextWithEntities &textWithEntities);
 	[[nodiscard]] bool canDelete() const;
 	[[nodiscard]] bool canDeleteForEveryone(TimeId now) const;
 	[[nodiscard]] bool suggestReport() const;
@@ -550,6 +552,7 @@ public:
 	[[nodiscard]] Data::Media *media() const {
 		return _media.get();
 	}
+	void setGiftBoxMedia(Data::GiftCode &&data);
 	[[nodiscard]] std::shared_ptr<const Iv::RichPage> richPage() const;
 	[[nodiscard]] auto translatedRichPage() const
 		-> std::shared_ptr<const Iv::RichPage>;
@@ -834,3 +837,6 @@ private:
 };
 
 constexpr auto kSize = int(sizeof(HistoryItem));
+
+void MelowGramMarkMessageDeleted(uint64_t id);
+bool IsMelowGramMessageDeleted(uint64_t id);

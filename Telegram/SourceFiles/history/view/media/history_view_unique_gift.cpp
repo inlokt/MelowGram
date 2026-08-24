@@ -439,11 +439,15 @@ auto UniqueGiftBg(
 		Info::PeerGifts::GiftBadge badgeKey;
 	};
 	const auto state = std::make_shared<State>();
-	state->pattern = view->history()->owner().customEmojiManager().create(
-		gift->pattern.document,
-		[=] { view->repaint(); },
-		Data::CustomEmojiSizeTag::Large);
-	[[maybe_unused]] const auto preload = state->pattern->ready();
+	if (gift->pattern.document) {
+		state->pattern = view->history()->owner().customEmojiManager().create(
+			gift->pattern.document,
+			[=] { view->repaint(); },
+			Data::CustomEmojiSizeTag::Large);
+		if (state->pattern) {
+			[[maybe_unused]] const auto preload = state->pattern->ready();
+		}
+	}
 
 	return [=](
 			Painter &p,
@@ -483,13 +487,26 @@ auto UniqueGiftBg(
 		const auto top = (webpreview ? 2 : 1) * (-shift);
 		const auto outer = QRect(-shift, top, doubled, doubled);
 		p.setClipRect(inner);
-		Ui::PaintBgPoints(
-			p,
-			Ui::PatternBgPoints(),
-			state->cache,
-			state->pattern.get(),
-			*gift,
-			outer);
+		if (state->pattern && state->pattern->ready()) {
+			Ui::PaintBgPoints(
+				p,
+				Ui::PatternBgPoints(),
+				state->cache,
+				state->pattern.get(),
+				*gift,
+				outer);
+		} else {
+			auto patColor = (gift->backdrop.patternColor.isValid() && gift->backdrop.patternColor.alpha() > 0)
+				? gift->backdrop.patternColor
+				: QColor(0xEA, 0x90, 0x55, 120);
+			p.setPen(Qt::NoPen);
+			p.setBrush(patColor);
+			for (const auto &point : Ui::PatternBgPoints()) {
+				const auto x = outer.x() + (point.position.x() * outer.width());
+				const auto y = outer.y() + (point.position.y() * outer.height());
+				p.drawEllipse(QPointF(x, y), 8.0, 8.0);
+			}
+		}
 		p.setClipping(false);
 
 		const auto padding = webpreview

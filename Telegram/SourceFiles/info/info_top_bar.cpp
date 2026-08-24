@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "info/info_top_bar.h"
 
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "dialogs/ui/dialogs_stories_list.h"
 #include "lang/lang_keys.h"
 #include "info/info_wrap_widget.h"
@@ -472,6 +474,20 @@ void TopBar::updateStoriesGeometry(int newWidth) {
 
 void TopBar::paintEvent(QPaintEvent *e) {
 	auto p = QPainter(this);
+
+	const auto blur = Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramBlur", false);
+	const auto gif = Core::IsAppLaunched()
+		&& Core::App().settings().readPref<bool>("MelowGramGifBackground", false);
+	const auto blackout = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramBlackout", 100)
+		: 100;
+	const auto hasBack = (blur || gif);
+	const auto blackoutOpacity = (hasBack && blackout < 100) ? (std::clamp(blackout, 15, 100) / 100.0) : 1.0;
+
+	if (hasBack && blackout < 100) {
+		p.setOpacity(blackoutOpacity);
+	}
 
 	auto highlight = _a_highlight.value(_highlight ? 1. : 0.);
 	if (_highlight && !_a_highlight.animating()) {

@@ -19,9 +19,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_channel.h"
 #include "data/data_credits.h"
 #include "data/data_session.h"
+#include "data/data_document.h"
 #include "data/data_user.h"
 #include "info/peer_gifts/info_peer_gifts_collections.h"
 #include "info/peer_gifts/info_peer_gifts_common.h"
+#include "chat_helpers/stickers_gift_box_pack.h"
+#include "melow/local_server.h"
 #include "info/info_controller.h"
 #include "info/info_memento.h"
 #include "ui/boxes/confirm_box.h"
@@ -393,6 +396,17 @@ InnerWidget::InnerWidget(
 	) | rpl::on_next([=](Descriptor now) {
 		switchTo(now.collectionId);
 	}, lifetime());
+
+	rpl::merge(
+		Melow::LocalServer::Instance().enabledValue() | rpl::to_empty,
+		Melow::LocalServer::Instance().giftsChanged()
+	) | rpl::on_next([=] {
+		_entries->allLoaded = false;
+		_entries->filter = {};
+		_offset = QString();
+		_list->clear();
+		loadMore();
+	}, lifetime());
 }
 
 void InnerWidget::switchTo(int collectionId) {
@@ -727,10 +741,100 @@ void InnerWidget::loaded(const MTPpayments_SavedStarGifts &result) {
 		_entries->total = _entries->list.size();
 	}
 	refreshButtons();
-	refreshAbout();
-
 	if (hasUnique) {
 		Ui::PreloadUniqueGiftResellPrices(&_peer->session());
+	}
+
+	if (Melow::LocalServer::Instance().isEnabled()) {
+		const auto myUserId = _peer->session().user()->id;
+		const auto targetPeerId = (_peer->isSelf() ? myUserId : _peer->id);
+
+		for (const auto &localGift : Melow::LocalServer::Instance().gifts()) {
+			if (!localGift.isUnique && !localGift.modelDocId && !localGift.modelDoc.id) {
+				continue;
+			}
+			if (localGift.title == u"Exclusive Gift"_q && localGift.number == 0) {
+				continue;
+			}
+			const auto recipient = localGift.toId ? localGift.toId : myUserId;
+			if (recipient != targetPeerId) {
+				continue;
+			}
+			const auto exists = ranges::contains(*_list, localGift.id, [](const Entry &e) {
+				return e.gift.info.id;
+			});
+			if (exists) {
+				continue;
+			}
+			const auto doc = Melow::LocalServer::Instance().ensureModelDocument(&_peer->session(), localGift);
+			const auto patternDoc = Melow::LocalServer::Instance().ensurePatternDocument(&_peer->session(), localGift);
+			auto info = Data::StarGift{
+				.id = localGift.id,
+				.stars = localGift.stars,
+				.document = doc,
+				.limitedLeft = 500,
+				.limitedCount = 10000,
+			};
+			if (localGift.isUnique) {
+				auto model = Data::UniqueGiftModel{ { localGift.title.isEmpty() ? u"Unique Gift"_q : localGift.title }, doc };
+				model.rarityValue = int(Data::UniqueGiftRarity::Rare);
+
+				const auto patName = localGift.patternName.isEmpty() ? u"Cosmic Symbol"_q : localGift.patternName;
+				auto pattern = Data::UniqueGiftPattern{ { patName }, patternDoc };
+				pattern.rarityValue = int(Data::UniqueGiftRarity::Rare);
+
+				const auto centerColor = localGift.centerColor ? QColor::fromRgb(QRgb(uint32(localGift.centerColor))) : QColor(0xD9, 0x6E, 0x34);
+				const auto edgeColor = localGift.edgeColor ? QColor::fromRgb(QRgb(uint32(localGift.edgeColor))) : QColor(0x8C, 0x33, 0x12);
+				const auto patternColor = localGift.patternColor ? QColor::fromRgb(QRgb(uint32(localGift.patternColor))) : QColor(0xEA, 0x90, 0x55, 120);
+				const auto backName = localGift.backdropName.isEmpty() ? u"Celestial Velvet"_q : localGift.backdropName;
+				auto backdrop = Data::UniqueGiftBackdrop{
+					{ backName },
+					centerColor,
+					edgeColor,
+					patternColor,
+					QColor(0xFF, 0xFF, 0xFF),
+					int(localGift.backdropId ? localGift.backdropId : 1),
+				};
+				backdrop.rarityValue = int(Data::UniqueGiftRarity::Rare);
+
+				auto unique = std::make_shared<Data::UniqueGift>(Data::UniqueGift{
+					.id = localGift.id,
+					.initialGiftId = localGift.initialGiftId,
+					.slug = localGift.slug,
+					.title = localGift.title,
+					.ownerName = _peer->name(),
+					.ownerId = targetPeerId,
+					.nanoTonForResale = -1,
+					.starsForResale = -1,
+					.starsMinOffer = -1,
+					.number = localGift.number,
+					.model = std::move(model),
+					.pattern = std::move(pattern),
+					.backdrop = std::move(backdrop),
+				});
+				info.unique = unique;
+			}
+			auto saved = Data::SavedStarGift{
+				.info = std::move(info),
+				.manageId = (_peer->isUser()
+					? Data::SavedStarGiftId::User(int(localGift.id))
+					: Data::SavedStarGiftId::Chat(_peer, localGift.id)),
+				.message = {},
+				.starsConverted = localGift.stars,
+				.fromId = (localGift.fromId ? localGift.fromId : myUserId),
+				.date = localGift.date,
+				.giftNum = localGift.number,
+				.mine = (targetPeerId == myUserId),
+			};
+			auto descriptor = DescriptorForGift(_peer, saved);
+			_list->push_back({
+				.gift = std::move(saved),
+				.descriptor = std::move(descriptor),
+			});
+		}
+		_entries->total = _entries->list.size();
+		refreshButtons();
+		refreshAbout();
 	}
 }
 
@@ -844,19 +948,22 @@ void InnerWidget::validateButtons() {
 		const auto manageId = gift.manageId;
 		const auto &descriptor = entry.descriptor;
 		const auto already = ranges::find(_views, giftId, &View::giftId);
-		if (already != end(_views)) {
+		if (already != end(_views) && already->button) {
 			views.push_back(base::take(*already));
 		} else {
 			const auto unused = ranges::find_if(_views, [&](const View &v) {
 				return v.button && !idUsed(v.giftId, column, row);
 			});
-			if (unused != end(_views)) {
+			if (unused != end(_views) && unused->button) {
 				views.push_back(base::take(*unused));
 			} else {
 				views.push_back({ .button = createGiftButton() });
 			}
 		}
 		auto &view = views.back();
+		if (!view.button) {
+			view.button = createGiftButton();
+		}
 		view.index = index;
 		view.manageId = manageId;
 		view.giftId = giftId;

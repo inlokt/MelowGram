@@ -119,14 +119,19 @@ bool DarkTasbarValueValid/* = false*/;
 		? ScaledLogoNoMargin
 		: ScaledLogo;
 
+	const auto appIcon = Core::IsAppLaunched()
+		? Core::App().settings().readPref<int>("MelowGramAppIcon", 0)
+		: 0;
+	const auto cacheKey = (appIcon << 16) | (args.size & 0xFFFF);
+
 	auto result = [&] {
-		if (const auto it = scaled.find(args.size); it != scaled.end()) {
+		if (const auto it = scaled.find(cacheKey); it != scaled.end()) {
 			return it->second;
 		} else if (monochrome && darkMode) {
 			return MonochromeIconFor(args.size, *darkMode);
 		}
 		return scaled.emplace(
-			args.size,
+			cacheKey,
 			(smallIcon
 				? Window::LogoNoMargin()
 				: Window::Logo()

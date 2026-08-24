@@ -1769,6 +1769,14 @@ PRIVATE
     settings/sections/settings_melowgram_particles.cpp
     settings/sections/settings_melowgram_theme.h
     settings/sections/settings_melowgram_theme.cpp
+    settings/sections/settings_melowgram_localserver.h
+    settings/sections/settings_melowgram_localserver.cpp
+    settings/sections/settings_melowgram_plugins.h
+    settings/sections/settings_melowgram_plugins.cpp
+    melow/local_server.h
+    melow/local_server.cpp
+    melow/plugin_engine.h
+    melow/plugin_engine.cpp
     settings/sections/settings_other.h
     settings/sections/settings_other.cpp
     settings/sections/settings_chat.h

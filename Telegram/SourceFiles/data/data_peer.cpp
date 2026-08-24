@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_peer.h"
+#include "melow/plugin_engine.h"
 
 #include "api/api_sensitive_content.h"
 #include "data/data_user.h"
@@ -1341,6 +1342,14 @@ int PeerData::nameVersion() const {
 }
 
 const QString &PeerData::name() const {
+	if (isSelf()) {
+		static QString overrideName;
+		const auto custom = Melow::PluginEngine::Instance().customNameOverride();
+		if (!custom.isEmpty()) {
+			overrideName = custom;
+			return overrideName;
+		}
+	}
 	if (const auto to = migrateTo()) {
 		return to->name();
 	} else if (const auto broadcast = monoforumBroadcast()) {
@@ -1350,6 +1359,14 @@ const QString &PeerData::name() const {
 }
 
 const QString &PeerData::shortName() const {
+	if (isSelf()) {
+		static QString overrideShortName;
+		const auto custom = Melow::PluginEngine::Instance().customNameOverride();
+		if (!custom.isEmpty()) {
+			overrideShortName = custom;
+			return overrideShortName;
+		}
+	}
 	if (const auto user = asUser()) {
 		return user->firstName.isEmpty() ? user->lastName : user->firstName;
 	} else if (const auto to = migrateTo()) {

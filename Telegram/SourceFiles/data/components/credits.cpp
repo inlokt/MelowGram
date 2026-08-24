@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "lang/lang_keys.h"
 #include "main/main_app_config.h"
 #include "main/main_session.h"
+#include "melow/local_server.h"
 
 namespace Data {
 namespace {
@@ -25,11 +26,32 @@ Credits::Credits(not_null<Main::Session*> session)
 : _session(session)
 , _tonBalance(CreditsAmount(0, CreditsType::Ton))
 , _reload([=] { load(true); }) {
+	if (Melow::LocalServer::Instance().isEnabled()) {
+		apply(CreditsAmount(Melow::LocalServer::Instance().stars(), 0, CreditsType::Stars));
+	}
+	Melow::LocalServer::Instance().enabledValue(
+	) | rpl::on_next([=](bool enabled) {
+		if (enabled) {
+			apply(CreditsAmount(Melow::LocalServer::Instance().stars(), 0, CreditsType::Stars));
+		} else {
+			_lastLoaded = 0;
+			load(true);
+		}
+	}, _lifetime);
+	Melow::LocalServer::Instance().starsValue(
+	) | rpl::on_next([=](int64 stars) {
+		if (Melow::LocalServer::Instance().isEnabled()) {
+			apply(CreditsAmount(stars, 0, CreditsType::Stars));
+		}
+	}, _lifetime);
 }
 
 Credits::~Credits() = default;
 
 void Credits::apply(const MTPDupdateStarsBalance &data) {
+	if (Melow::LocalServer::Instance().isEnabled()) {
+		return;
+	}
 	apply(CreditsAmountFromTL(data.vbalance()));
 }
 
@@ -43,6 +65,10 @@ float64 Credits::usdRate() const {
 }
 
 void Credits::load(bool force) {
+	if (Melow::LocalServer::Instance().isEnabled()) {
+		apply(CreditsAmount(Melow::LocalServer::Instance().stars(), 0, CreditsType::Stars));
+		return;
+	}
 	if (_loader
 		|| (!force
 			&& _lastLoaded
@@ -83,6 +109,9 @@ rpl::producer<bool> Credits::loadedValue() const {
 }
 
 CreditsAmount Credits::balance() const {
+	if (Melow::LocalServer::Instance().isEnabled()) {
+		return CreditsAmount(Melow::LocalServer::Instance().stars(), 0, CreditsType::Stars);
+	}
 	return _nonLockedBalance.current();
 }
 

@@ -19,3 +19,6 @@ namespace Settings {
 } // namespace Settings
 
 [[nodiscard]] bool IsMelowGramSaveTTLMediaEnabled();
+[[nodiscard]] bool IsMelowGramEditOthersMessagesEnabled();
+[[nodiscard]] bool IsMelowGramDisplayRepostsInChannelsEnabled();
+[[nodiscard]] bool IsMelowGramAlwaysShowLastVisitEnabled();

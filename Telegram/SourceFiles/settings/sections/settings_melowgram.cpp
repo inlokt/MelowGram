@@ -13,6 +13,8 @@
 
 #include "settings/sections/settings_melowgram_theme.h"
 #include "settings/sections/settings_melowgram_particles.h"
+#include "settings/sections/settings_melowgram_localserver.h"
+#include "settings/sections/settings_melowgram_plugins.h"
 #include "settings/sections/settings_other.h"
 #include "core/click_handler_types.h"
 #include "ui/widgets/checkbox.h"
@@ -22,10 +24,11 @@
 #include "window/window_session_controller.h"
 #include "ui/rp_widget.h"
 #include "ui/widgets/labels.h"
-#include "ui/widgets/buttons.h"
+#include "ui/unread_badge.h"
 #include <QtGui/QPainter>
 #include <QtGui/QImage>
 #include <QtGui/QPainterPath>
+#include <QtSvg/QSvgRenderer>
 
 namespace Settings {
 
@@ -81,6 +84,111 @@ const style::SettingsButton &GetRoundedButtonNoIconStyle() {
 	return stButton;
 }
 
+void AttachMelowSvgIcon(
+		not_null<Ui::SettingsButton*> button,
+		const style::SettingsButton &st,
+		const QString &svgResourcePath,
+		int iconSize) {
+	struct SvgIconWidget {
+		SvgIconWidget(QWidget *parent, const QString &path, int size)
+		: widget(parent), resourcePath(path), size(size) {
+		}
+		Ui::RpWidget widget;
+		QString resourcePath;
+		int size;
+	};
+
+	const auto icon = button->lifetime().make_state<SvgIconWidget>(
+		button.get(),
+		svgResourcePath,
+		iconSize);
+	icon->widget.setAttribute(Qt::WA_TransparentForMouseEvents);
+	icon->widget.resize(iconSize, iconSize);
+	icon->widget.show();
+
+	button->sizeValue()
+		| rpl::on_next([=, left = st.iconLeft](QSize size) {
+			icon->widget.moveToLeft(
+				left,
+				(size.height() - icon->widget.height()) / 2,
+				size.width());
+		}, icon->widget.lifetime());
+
+	icon->widget.paintRequest()
+		| rpl::on_next([=] {
+			auto p = QPainter(&icon->widget);
+			p.setRenderHint(QPainter::Antialiasing, true);
+			p.setRenderHint(QPainter::SmoothPixmapTransform, true);
+
+			const auto ratio = style::DevicePixelRatio();
+			const auto pxSize = std::max(int(std::round(iconSize * ratio)), 1);
+
+			static base::flat_map<std::pair<QString, int>, QImage> cache;
+			const auto key = std::make_pair(icon->resourcePath, pxSize);
+			auto it = cache.find(key);
+			if (it == cache.end()) {
+				if (icon->resourcePath.contains(u"logotype2"_q)) {
+					it = cache.emplace(key, MelowBadge::GetBadgeForSize(pxSize, pxSize)).first;
+				} else {
+					QImage img(pxSize, pxSize, QImage::Format_ARGB32_Premultiplied);
+					img.fill(Qt::transparent);
+					QSvgRenderer renderer(icon->resourcePath);
+					if (renderer.isValid()) {
+						QPainter ip(&img);
+						ip.setRenderHint(QPainter::Antialiasing, true);
+						ip.setRenderHint(QPainter::SmoothPixmapTransform, true);
+						renderer.render(&ip, QRectF(0, 0, pxSize, pxSize));
+					}
+					it = cache.emplace(key, std::move(img)).first;
+				}
+			}
+
+			const auto &baseImg = it->second;
+			if (!baseImg.isNull()) {
+				if (icon->resourcePath.contains(u"logotype2"_q)) {
+					p.drawImage(QRect(0, 0, iconSize, iconSize), baseImg);
+				} else {
+					QImage colored = baseImg;
+					QPainter cp(&colored);
+					cp.setCompositionMode(QPainter::CompositionMode_SourceIn);
+					cp.fillRect(colored.rect(), st::menuIconFg->c);
+					cp.end();
+
+					p.drawImage(QRect(0, 0, iconSize, iconSize), colored);
+				}
+			}
+		}, icon->widget.lifetime());
+}
+
+not_null<Ui::SettingsButton*> AddButtonWithSvgIcon(
+		not_null<Ui::VerticalLayout*> container,
+		rpl::producer<QString> text,
+		const style::SettingsButton &st,
+		const QString &svgResourcePath,
+		int iconSize) {
+	const auto button = container->add(
+		object_ptr<Ui::SettingsButton>(container, std::move(text), st));
+	AttachMelowSvgIcon(button, st, svgResourcePath, iconSize);
+	return button;
+}
+
+not_null<Ui::SettingsButton*> AddButtonWithSvgLabel(
+		not_null<Ui::VerticalLayout*> container,
+		rpl::producer<QString> text,
+		rpl::producer<QString> label,
+		const style::SettingsButton &st,
+		const QString &svgResourcePath,
+		int iconSize) {
+	const auto button = AddButtonWithSvgIcon(
+		container,
+		rpl::duplicate(text),
+		st,
+		svgResourcePath,
+		iconSize);
+	CreateRightLabel(button, std::move(label), st, std::move(text));
+	return button;
+}
+
 namespace {
 
 class MelowGram : public Section<MelowGram> {
@@ -115,15 +223,8 @@ void MelowGram::setupContent() {
 	avatarWrap->paintRequest() | rpl::on_next([avatarWrap] {
 		QPainter p(avatarWrap);
 		p.setRenderHint(QPainter::Antialiasing);
-		QImage img(":/gui/melow/avatar.jpg");
-		if (!img.isNull()) {
-			img = img.scaled(80, 80, Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
-			QPainterPath path;
-			path.addEllipse(QRectF((avatarWrap->width() - 80) / 2.0, 10.0, 80.0, 80.0));
-			p.setClipPath(path);
-			p.drawImage(QRect((avatarWrap->width() - 80) / 2, 10, 80, 80), img);
-		}
-		p.setClipping(false);
+		const auto targetRect = QRect((avatarWrap->width() - 80) / 2, 10, 80, 80);
+		MelowBadge::Paint(p, targetRect);
 		
 		p.setFont(st::semiboldFont);
 		p.setPen(st::windowFg);
@@ -131,7 +232,7 @@ void MelowGram::setupContent() {
 		
 		p.setFont(st::normalFont);
 		p.setPen(st::windowSubTextFg);
-		p.drawText(QRectF(0, 130, avatarWrap->width(), 20), "1.2.2 Release", QTextOption(Qt::AlignCenter));
+		p.drawText(QRectF(0, 130, avatarWrap->width(), 20), "2.0.0 Release", QTextOption(Qt::AlignCenter));
 	}, avatarWrap->lifetime());
 	
 	avatarWrap->widthValue() | rpl::on_next([avatarWrap](int w) {
@@ -143,21 +244,27 @@ void MelowGram::setupContent() {
 	
 	const auto &stButton = GetRoundedButtonStyle();
 	
-	auto btnTheme = Settings::AddButtonWithIcon(mainCard, rpl::single(u"Theme"_q), stButton, { &st::menuIconChangeColors });
+	auto btnTheme = Settings::AddButtonWithSvgIcon(mainCard, rpl::single(u"Theme"_q), stButton, u":/gui/melow/melowgui/main/theme.svg"_q);
 	btnTheme->setClickedCallback([=] { controller()->showSettings(MelowGramThemeId()); });
 	
-	auto btnParticles = Settings::AddButtonWithIcon(mainCard, rpl::single(u"Particles"_q), stButton, { &st::menuIconPremium });
+	auto btnParticles = Settings::AddButtonWithSvgIcon(mainCard, rpl::single(u"Particles"_q), stButton, u":/gui/melow/melowgui/main/particles.svg"_q);
 	btnParticles->setClickedCallback([=] { controller()->showSettings(MelowGramParticlesId()); });
 	
-	auto btnOther = Settings::AddButtonWithIcon(mainCard, rpl::single(u"Other"_q), stButton, { &st::menuIconChatBubble });
+	auto btnLocalServer = Settings::AddButtonWithSvgIcon(mainCard, rpl::single(u"Local Server"_q), stButton, u":/gui/melow/melowgui/main/localserver.svg"_q);
+	btnLocalServer->setClickedCallback([=] { controller()->showSettings(LocalServerId()); });
+
+	auto btnPlugins = Settings::AddButtonWithSvgIcon(mainCard, rpl::single(u"Plugins"_q), stButton, u":/gui/melow/melowgui/main/plugin.svg"_q);
+	btnPlugins->setClickedCallback([=] { controller()->showSettings(MelowGramPluginsId()); });
+
+	auto btnOther = Settings::AddButtonWithSvgIcon(mainCard, rpl::single(u"Other"_q), stButton, u":/gui/melow/melowgui/main/other.svg"_q);
 	btnOther->setClickedCallback([=] { controller()->showSettings(OtherId()); });
 
 	// 3. Socials card
 	auto socialsCard = AddRoundedBlock(content);
-	auto btnChannel = Settings::AddButtonWithLabel(socialsCard, rpl::single(u"Официальный канал"_q), rpl::single(u"@melowdesktop"_q), stButton, { &st::menuIconChannel });
+	auto btnChannel = Settings::AddButtonWithSvgLabel(socialsCard, rpl::single(u"Официальный канал"_q), rpl::single(u"@melowdesktop"_q), stButton, u":/gui/melow/melowgui/main/channel.svg"_q);
 	btnChannel->setClickedCallback([=] { UrlClickHandler::Open(u"https://t.me/melowdesktop"_q); });
 
-	auto btnSource = Settings::AddButtonWithLabel(socialsCard, rpl::single(u"Исходный код"_q), rpl::single(u"GitHub"_q), stButton, { &st::menuIconLink });
+	auto btnSource = Settings::AddButtonWithSvgLabel(socialsCard, rpl::single(u"Исходный код"_q), rpl::single(u"GitHub"_q), stButton, u":/gui/melow/melowgui/main/github.svg"_q);
 	btnSource->setClickedCallback([=] { UrlClickHandler::Open(u"https://github.com/inlokt/melowgram"_q); });
 
 	// 4. Ads card

@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "core/ui_integration.h"
+#include "melow/plugin_engine.h"
 
 #include "api/api_text_entities.h"
 #include "core/local_url_handlers.h"
@@ -320,6 +321,9 @@ bool UiIntegration::customSwitcher() {
 }
 
 int UiIntegration::customAvatarRounding() {
+	if (const auto overrideVal = Melow::PluginEngine::Instance().avatarRoundingOverride()) {
+		return *overrideVal;
+	}
 	if (!Core::IsAppLaunched()) {
 		return 0;
 	}

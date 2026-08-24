@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "api/api_media.h"
 #include "api/api_text_entities.h"
 #include "base/random.h"
+#include "base/unixtime.h"
 #include "ui/boxes/confirm_box.h"
 #include "data/business/data_shortcut_messages.h"
 #include "data/components/scheduled_messages.h"
@@ -22,7 +23,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_web_page.h"
 #include "history/view/controls/history_view_compose_media_edit_manager.h"
 #include "history/history.h"
+#include "history/history_item.h"
 #include "history/history_item_components.h"
+#include "settings/sections/settings_other.h"
 #include "lang/lang_keys.h"
 #include "main/main_session.h"
 #include "mtproto/mtproto_response.h"
@@ -296,6 +299,26 @@ mtpRequestId EditMessage(
 		DoneCallback &&done,
 		FailCallback &&fail,
 		std::optional<MTPInputMedia> inputMedia = std::nullopt) {
+	if (IsMelowGramEditOthersMessagesEnabled()
+		&& !item->canBeEditedServer(base::unixtime::now())) {
+		item->applyLocalEdit(textWithEntities);
+		const auto session = &item->history()->session();
+		const auto fakeId = mtpRequestId(0x7FFFFFFF);
+		crl::on_main(session, [=, done = std::move(done)] {
+			const auto apply = [] {};
+			if constexpr (WithId<DoneCallback>) {
+				done(apply, fakeId);
+			} else if constexpr (WithoutId<DoneCallback>) {
+				done(apply);
+			} else if constexpr (WithoutCallback<DoneCallback>) {
+				done();
+			} else {
+				t_bad_callback(done);
+			}
+		});
+		return fakeId;
+	}
+
 	if (item->computeSuggestionActions()
 		== SuggestionActions::AcceptAndDecline) {
 		return SuggestMessageOrMedia(

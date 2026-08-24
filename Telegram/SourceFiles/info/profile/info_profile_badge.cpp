@@ -112,21 +112,18 @@ void Badge::setContent(Content content) {
 	case BadgeType::Verified:
 	case BadgeType::BotVerified:
 	case BadgeType::Premium: {
-		const auto isMelow = MelowBadge::IsMelowId(_content.peerId);
 		const auto id = _content.emojiStatusId;
 		const auto emoji = id
 			? (Data::FrameSizeFromTag(sizeTag())
 				/ style::DevicePixelRatio())
 			: 0;
 		const auto &style = st();
-		const auto icon = isMelow
-			? nullptr
-			: (_content.badge == BadgeType::Verified)
+		const auto icon = (_content.badge == BadgeType::Verified)
 			? &style.verified
 			: id
 			? nullptr
 			: &style.premium;
-		const auto iconForeground = (_content.badge == BadgeType::Verified && !isMelow)
+		const auto iconForeground = (_content.badge == BadgeType::Verified)
 			? &style.verifiedCheck
 			: nullptr;
 		if (id) {
